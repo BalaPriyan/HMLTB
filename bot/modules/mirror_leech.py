@@ -1,16 +1,19 @@
 from base64 import b64encode
+from html import escape
 from re import match as re_match
 from asyncio import sleep
 from aiofiles.os import path as aiopath
-from pyrogram.filters import command
-from pyrogram.handlers import MessageHandler
+from aiofiles import open as aiopen
+from pyrogram.filters import command, regex
+from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 
-from bot import IS_PREMIUM_USER, LOGGER, bot, categories_dict, config_dict
+from bot import IS_PREMIUM_USER, LOGGER, bot, categories_dict, config_dict, DOWNLOAD_DIR, bot_name
 from bot.helper.ext_utils.bot_utils import (arg_parser, get_content_type, is_gdrive_link,
                                             is_magnet, is_mega_link,
                                             is_rclone_path, is_telegram_link,
                                             is_url, new_task, sync_to_async)
 from bot.helper.ext_utils.exceptions import DirectDownloadLinkException
+from bot.helper.ext_utils.task_manager import task_utils
 from bot.helper.ext_utils.help_messages import MIRROR_HELP_MESSAGE
 from bot.helper.z_utils import none_admin_utils, stop_duplicate_tasks
 from bot.helper.listeners.tasks_listener import MirrorLeechListener
@@ -34,6 +37,7 @@ from bot.helper.telegram_helper.message_utils import (anno_checker, delete_links
                                                       sendLogMessage,
                                                       sendMessage)
 from bot.helper.ext_utils.bulk_links import extract_bulk_links
+from bot.helper.telegram_helper.button_build import ButtonMaker
 
 
 
@@ -183,6 +187,7 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
             reply_to, session = await get_tg_link_content(link)
         except Exception as e:
             await sendMessage(message, f'ERROR: {e}')
+            await delete_links(message)
             return
     elif not link and (reply_to := message.reply_to_message):
         if reply_to.text:
@@ -192,6 +197,7 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
                     reply_to, session = await get_tg_link_content(reply_text)
                 except Exception as e:
                     await sendMessage(message, f'ERROR: {e}')
+                    await delete_links(message)
                     return
 
     if reply_to:
@@ -232,7 +238,7 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
         if none_admin_msg:
             error_msg.extend(none_admin_msg)
     if (dmMode := config_dict['DM_MODE']) and message.chat.type == message.chat.type.SUPERGROUP:
-        if isLeech and IS_PREMIUM_USER and not config_dict['DUMP_CHAT_ID']:
+        if isLeech and IS_PREMIUM_USER and not config_dict['LEECH_LOG_ID']:
             error_msg.append('DM_MODE and User Session need DUMP_CHAT_ID')
         dmMessage, error_button = await isBot_canDm(message, dmMode, isLeech, error_button)
         if dmMessage is not None and dmMessage != 'BotStarted':
@@ -269,6 +275,7 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
                 await delete_links(message)
                 if str(e).startswith('ERROR:'):
                     await editMessage(process_msg, str(e))
+                    await delete_links(message)
                     return
             await process_msg.delete()
 
@@ -286,6 +293,7 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
             return
         elif not up:
             await sendMessage(message, 'No Rclone Destination!')
+            await delete_links(message)
             return
         elif up not in ['rcl', 'gd']:
             if up.startswith('mrcc:'):
@@ -294,9 +302,11 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
                 config_path = 'rcl.conf'
             if not await aiopath.exists(config_path):
                 await sendMessage(message, f"Rclone Config: {config_path} not Exists!")
+                await delete_links(message)
                 return
         if up != 'gd' and not is_rclone_path(up):
             await sendMessage(message, 'Wrong Rclone Upload Destination!')
+            await delete_links(message)
             return
     elif up.isdigit() or up.startswith('-'):
         up = int(up)
@@ -304,20 +314,23 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
         link = await RcloneList(client, message).get_rclone_path('rcd')
         if not is_rclone_path(link):
             await sendMessage(message, link)
+            await delete_links(message)
             return
     if up == 'rcl' and not isLeech:
         up = await RcloneList(client, message).get_rclone_path('rcu')
         if not is_rclone_path(up):
             await sendMessage(message, up)
+            await delete_links(message)
             return
 
     listener = MirrorLeechListener(message, compress, extract, isQbit,
                                    isLeech, tag, select,
                                    seed, sameDir, rcf, up, join, False, raw_url,
-                                   drive_id, index_link, dmMessage, logMessage)
+                                   drive_id, index_link, dmMessage, logMessage, source_url=link)
 
     if file_ is not None:
-        await TelegramDownloadHelper(listener).add_download(reply_to, f'{path}/', name)
+        await delete_links(message)
+        await TelegramDownloadHelper(listener).add_download(reply_to, f'{path}/', name, session)
     elif is_rclone_path(link):
         if link.startswith('mrcc:'):
             link = link.split('mrcc:', 1)[1]
@@ -326,6 +339,7 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
             config_path = 'rcl.conf'
         if not await aiopath.exists(config_path):
             await sendMessage(message, f"Rclone Config: {config_path} not Exists!")
+            await delete_links(message)
             return
         await add_rclone_download(link, config_path, f'{path}/', name, listener)
     elif is_gdrive_link(link):
@@ -348,7 +362,47 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
         if ussr or pssw:
             auth = f"{ussr}:{pssw}"
             auth = f"authorization: Basic {b64encode(auth.encode()).decode('ascii')}"
+        else:
+            auth = ''
         await add_aria2c_download(link, path, listener, name, auth, ratio, seed_time)
+     await delete_links(message)
+
+@new_task
+async def wzmlxcb(_, query):
+    message = query.message
+    user_id = query.from_user.id
+    data = query.data.split()
+    if user_id != int(data[1]):
+        return await query.answer(text="Not Message User!", show_alert=True)
+    elif data[2] == "logdisplay":
+        await query.answer()
+        async with aiopen('Z_Logs.txt', 'r') as f:
+            logFileLines = (await f.read()).splitlines()
+        def parseline(line):
+            try:
+                return "[" + line.split('] [', 1)[1]
+            except IndexError:
+                return line
+        ind, Loglines = 1, ''
+        try:
+            while len(Loglines) <= 3500:
+                Loglines = parseline(logFileLines[-ind]) + '\n' + Loglines
+                if ind == len(logFileLines): 
+                    break
+                ind += 1
+            startLine = f"<b>Showing Last {ind} Lines from log.txt:</b> \n\n----------<b>START LOG</b>----------\n\n"
+            endLine = "\n----------<b>END LOG</b>----------"
+            btn = ButtonMaker()
+            btn.ibutton('Close', f'wzmlx {user_id} close')
+            await sendMessage(message, startLine + escape(Loglines) + endLine, btn.build_menu(1))
+            await query.edit_message_reply_markup(None)
+        except Exception as err:
+            LOGGER.error(f"TG Log Display : {str(err)}")
+    elif data[2] == "botpm":
+        await query.answer(url=f"https://t.me/{bot_name}?start=wzmlx")
+    else:
+        await query.answer()
+        await message.delete()
 
 
 async def mirror(client, message):
@@ -375,3 +429,4 @@ bot.add_handler(MessageHandler(leech, filters=command(
     BotCommands.LeechCommand) & CustomFilters.authorized))
 bot.add_handler(MessageHandler(qb_leech, filters=command(
     BotCommands.QbLeechCommand) & CustomFilters.authorized))
+bot.add_handler(CallbackQueryHandler(wzmlxcb, filters=regex(r'^wzmlx')))

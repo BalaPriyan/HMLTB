@@ -14,6 +14,7 @@ from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
 from bot.helper.telegram_helper.message_utils import (deleteMessage, delete_links,
                                                       sendMessage,
                                                       update_all_messages)
+from bot.helper.themes import BotTheme
 
 
 @new_thread
@@ -37,6 +38,31 @@ async def __onDownloadStarted(api, gid):
     else:
         LOGGER.info(f'onDownloadStarted: {download.name} - Gid: {gid}')
     dl = None
+    if any([config_dict['DIRECT_LIMIT'],
+            config_dict['TORRENT_LIMIT'],
+            config_dict['LEECH_LIMIT'],
+            config_dict['STORAGE_THRESHOLD'],
+            config_dict['DAILY_TASK_LIMIT'],
+            config_dict['DAILY_MIRROR_LIMIT'],
+            config_dict['DAILY_LEECH_LIMIT']]):
+        await sleep(1)
+        if dl is None:
+            dl = await getDownloadByGid(gid)
+        if dl:
+            if not hasattr(dl, 'listener'):
+                LOGGER.warning(
+                    f"onDownloadStart: {gid}. at Download limit didn't pass since download completed earlier!")
+                return
+            listener = dl.listener()
+            download = await sync_to_async(api.get_download, gid)
+            if not download.is_torrent:
+                await sleep(3)
+                download = download.live
+            size = download.total_length
+            LOGGER.info(f"listener size : {size}")
+            if limit_exceeded := await limit_checker(size, listener):
+                await listener.onDownloadError(limit_exceeded)
+                await sync_to_async(api.remove, [download], force=True, files=True)
     if config_dict['STOP_DUPLICATE']:
         await sleep(1)
         if dl is None:
@@ -70,36 +96,7 @@ async def __onDownloadStarted(api, gid):
                         await sync_to_async(api.remove, [download], force=True, files=True)
                         await delete_links(listener.message)
                         return
-    if any([config_dict['DIRECT_LIMIT'],
-            config_dict['TORRENT_LIMIT'],
-            config_dict['LEECH_LIMIT'],
-            config_dict['STORAGE_THRESHOLD']]):
-        await sleep(1)
-        if dl is None:
-            dl = await getDownloadByGid(gid)
-        if dl is not None:
-            if not hasattr(dl, 'listener'):
-                LOGGER.warning(
-                    f"onDownloadStart: {gid}. at Download limit didn't pass since download completed earlier!")
-                return
-            listener = dl.listener()
-            download = await sync_to_async(api.get_download, gid)
-            download = download.live
-            if download.total_length == 0:
-                start_time = time()
-                while time() - start_time <= 15:
-                    await sleep(0.5)
-                    download = await sync_to_async(api.get_download, gid)
-                    download = download.live
-                    if download.followed_by_ids:
-                        download = await sync_to_async(api.get_download, download.followed_by_ids[0])
-                    if download.total_length > 0:
-                        break
-            size = download.total_length
-            if limit_exceeded := await limit_checker(size, listener, download.is_torrent):
-                await listener.onDownloadError(limit_exceeded)
-                await sync_to_async(api.remove, [download], force=True, files=True)
-                await delete_links(listener.message)
+
 
 
 @new_thread

@@ -17,6 +17,7 @@ from bot.helper.telegram_helper.message_utils import (auto_delete_message,
                                                       sendMessage,
                                                       sendStatusMessage,
                                                       update_all_messages)
+from bot.helper.themes import BotTheme
 
 
 @new_task
@@ -26,10 +27,8 @@ async def mirror_status(_, message):
     if count == 0:
         currentTime = get_readable_time(time() - botStartTime)
         free = get_readable_file_size(disk_usage(config_dict['DOWNLOAD_DIR']).free)
-        msg = '<b>Uninstall Telegram and enjoy your life!</b>'
-        msg += '\n\nNo Active Tasks!\n___________________________'
-        msg += f"\n<b>CPU</b>: {cpu_percent()}% | <b>FREE</b>: {free}" \
-               f"\n<b>RAM</b>: {virtual_memory().percent}% | <b>UPTIME</b>: {currentTime}"
+        msg = BotTheme('NO_ACTIVE_DL', cpu=cpu_percent(), free=free, free_p=round(100-disk_usage(config_dict['DOWNLOAD_DIR']).percent, 1),
+                       ram=virtual_memory().percent, uptime=currentTime)
         reply_message = await sendMessage(message, msg)
         await auto_delete_message(message, reply_message)
     else:

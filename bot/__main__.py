@@ -1,37 +1,33 @@
+import platform
+from datetime import datetime
+from base64 import b64decode
 from asyncio import create_subprocess_exec, gather
 from os import execl as osexecl
 from signal import SIGINT, signal
 from sys import executable
 from time import time, monotonic
 from uuid import uuid4
-
+from requests import get as rget
+from pytz import timezone
+from bs4 import BeautifulSoup
 from aiofiles import open as aiopen
 from aiofiles.os import path as aiopath
 from aiofiles.os import remove as aioremove
-from psutil import (boot_time, cpu_count, cpu_percent, cpu_freq, disk_usage,
-                    net_io_counters, swap_memory, virtual_memory)
-from pyrogram.filters import command
-from pyrogram.handlers import MessageHandler
+from psutil import (boot_time, cpu_count, cpu_percent, cpu_freq, disk_usage, net_io_counters, swap_memory, virtual_memory)
+from pyrogram.filters import command, private, regex
+from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 
-from bot import (DATABASE_URL, INCOMPLETE_TASK_NOTIFIER, LOGGER,
-                 STOP_DUPLICATE_TASKS, Interval, QbInterval, bot, botStartTime,
-                 config_dict, scheduler, user_data)
+from bot import (DATABASE_URL, INCOMPLETE_TASK_NOTIFIER, LOGGER, STOP_DUPLICATE_TASKS, Interval, QbInterval, bot, botStartTime, config_dict, scheduler, user_data, get_version)
 from bot.helper.listeners.aria2_listener import start_aria2_listener
 
-from .helper.ext_utils.bot_utils import (cmd_exec, get_readable_file_size,
-                                         get_readable_time, new_thread, set_commands,
-                                         sync_to_async, get_progress_bar_string)
+from .helper.ext_utils.bot_utils import (cmd_exec, get_readable_file_size, get_readable_time, new_thread, set_commands, sync_to_async, get_progress_bar_string, update_user_ldata)
 from .helper.ext_utils.db_handler import DbManger
 from .helper.ext_utils.fs_utils import clean_all, exit_clean_up, start_cleanup
 from .helper.telegram_helper.bot_commands import BotCommands
 from .helper.telegram_helper.filters import CustomFilters
-from .helper.telegram_helper.message_utils import (editMessage, sendFile,
-                                                   sendMessage, auto_delete_message)
-from .modules import (anonymous, authorize, bot_settings, cancel_mirror,
-                      category_select, clone, eval, gd_count, gd_delete,
-                      gd_list, leech_del, mirror_leech, rmdb, rss,
-                      shell, status, torrent_search,
-                      torrent_select, users_settings, ytdlp)
+from .helper.telegram_helper.button_build import ButtonMaker
+from .helper.telegram_helper.message_utils import (editMessage, sendFile, sendMessage, auto_delete_message)
+from .modules import (anonymous, authorize, bot_settings, cancel_mirror, category_select, clone, eval, gd_count, gd_delete, gd_list, leech_del, mirror_leech, rmdb, rss, shell, status, torrent_search, torrent_select, users_settings, ytdlp, speedtest, save_msg, images, imdb, anilist, mediainfo, mydramalist, gen_pyro_sess, gd_clean, broadcast )
 
 
 @new_thread
@@ -44,22 +40,11 @@ async def stats(_, message):
         last_commit = 'No UPSTREAM_REPO'
         version = 'N/A'
         change_log = 'N/A'
-
-    sysTime = get_readable_time(time() - boot_time())
-    botTime = get_readable_time(time() - botStartTime)
-    remaining_time = 86400 - (time() - botStartTime)
-    res_time = '⚠️ Soon ⚠️' if remaining_time <= 0 else get_readable_time(remaining_time)
-    total, used, free, disk= disk_usage('/')
-    total = get_readable_file_size(total)
-    used = get_readable_file_size(used)
-    free = get_readable_file_size(free)
-    sent = get_readable_file_size(net_io_counters().bytes_sent)
-    recv = get_readable_file_size(net_io_counters().bytes_recv)
-    cpuUsage = cpu_percent(interval=1)
-    v_core = cpu_count(logical=True) - cpu_count(logical=False)
-    memory = virtual_memory()
+    total, used, free, disk = disk_usage('/')
     swap = swap_memory()
-    mem_p = memory.percent
+    memory = virtual_memory()
+    cpuUsage = cpu_percent(interval=0.5)
+
 
     DIR = 'Unlimited' if config_dict['DIRECT_LIMIT'] == '' else config_dict['DIRECT_LIMIT']
     YTD = 'Unlimited' if config_dict['YTDLP_LIMIT'] == '' else config_dict['YTDLP_LIMIT']
@@ -71,67 +56,105 @@ async def stats(_, message):
     UMT = 'Unlimited' if config_dict['USER_MAX_TASKS'] == '' else config_dict['USER_MAX_TASKS']
     BMT = 'Unlimited' if config_dict['QUEUE_ALL'] == '' else config_dict['QUEUE_ALL']
 
-    stats = f'<b><i><u>Zee Bot Statistics</u></i></b>\n\n'\
-            f'<b><i><u>Repo Info</u></i></b>\n' \
-            f'<b>Updated:</b> <code>{last_commit}</code>\n' \
-            f'<b>Version:</b> <code>{version}</code>\n' \
-            f'<b>Change Log:</b> <code>{change_log}</code>\n\n' \
-            f'<b><i><u>Bot Info</u></i></b>\n' \
-            f'<b>SYS UPTM:</b> <code>{sysTime}</code>\n' \
-            f'<b>BOT UPTM:</b> <code>{botTime}</code>\n' \
-            f'<b>BOT Restart:</b> <code>{res_time}</code>\n\n' \
-            f'<b>CPU:</b> <code>{get_progress_bar_string(cpuUsage)} {cpuUsage}%</code>\n' \
-            f'<b>CPU Total Core(s):</b> <code>{cpu_count(logical=True)}</code>\n' \
-            f'<b>P-Core(s):</b> <code>{cpu_count(logical=False)}</code> | <b>V-Core(s):</b> <code>{v_core}</code>\n' \
-            f'<b>Frequency:</b> <code>{cpu_freq(percpu=False).current / 1000:.2f} GHz</code>\n\n' \
-            f'<b>RAM:</b> <code>{get_progress_bar_string(mem_p)} {mem_p}%</code>\n' \
-            f'<b>RAM In Use:</b> <code>{get_readable_file_size(memory.used)}</code> [{mem_p}%]\n' \
-            f'<b>Total:</b> <code>{get_readable_file_size(memory.total)}</code> | <b>Free:</b> <code>{get_readable_file_size(memory.available)}</code>\n\n' \
-            f'<b>SWAP:</b> <code>{get_progress_bar_string(swap.percent)} {swap.percent}%</code>\n' \
-            f'<b>SWAP In Use:</b> <code>{get_readable_file_size(swap.used)}</code> [{swap.percent}%]\n' \
-            f'<b>Allocated</b> <code>{get_readable_file_size(swap.total)}</code> | <b>Free:</b> <code>{get_readable_file_size(swap.free)}</code>\n\n' \
-            f'<b>DISK:</b> <code>{get_progress_bar_string(disk)} {disk}%</code>\n' \
-            f'<b>Drive In Use:</b> <code>{used}</code> [{disk}%]\n' \
-            f'<b>Total:</b> <code>{total}</code> | <b>Free:</b> <code>{free}</code>\n\n' \
-            f'<b>UL:</b> <code>{sent}</code> | <b>DL:</b> <code>{recv}</code>\n\n' \
-            f'<b><i><u>Bot Limits</u></i></b>\n' \
-            f'<code>Torrent   : {TOR}</code> <b>GB</b>\n' \
-            f'<code>G-Drive   : {GDL}</code> <b>GB</b>\n' \
-            f'<code>Yt-Dlp    : {YTD}</code> <b>GB</b>\n' \
-            f'<code>Direct    : {DIR}</code> <b>GB</b>\n' \
-            f'<code>Clone     : {CLL}</code> <b>GB</b>\n' \
-            f'<code>Leech     : {TGL}</code> <b>GB</b>\n' \
-            f'<code>MEGA      : {MGA}</code> <b>GB</b>\n' \
-            f'<code>User Tasks: {UMT}</code>\n' \
-            f'<code>Bot Tasks : {BMT}</code>'
-    reply_message = await sendMessage(message, stats)
+    stats = BotTheme('STATS',
+                     last_commit=last_commit,
+                     bot_version=get_version(),
+                     commit_details=changelog,
+                     bot_uptime=get_readable_time(time() - botStartTime),
+                     os_uptime=get_readable_time(time() - boot_time()),
+                     os_arch=f"{platform.system()}, {platform.release()}, {platform.machine()}",
+                     cpu=cpuUsage,
+                     cpu_bar=get_progress_bar_string(cpuUsage),
+                     cpu_freq=f"{cpu_freq(percpu=False).current / 1000:.2f} GHz" if cpu_freq() else "Access Denied",
+                     p_core=cpu_count(logical=False),
+                     v_core=cpu_count(logical=True) - cpu_count(logical=False),
+                     total_core=cpu_count(logical=True),
+                     ram_bar=get_progress_bar_string(memory.percent),
+                     ram=memory.percent,
+                     ram_u=get_readable_file_size(memory.used),
+                     ram_f=get_readable_file_size(memory.available),
+                     ram_t=get_readable_file_size(memory.total),
+                     swap_bar=get_progress_bar_string(swap.percent),
+                     swap=swap.percent,
+                     swap_u=get_readable_file_size(swap.used),
+                     swap_f=get_readable_file_size(swap.free),
+                     swap_t=get_readable_file_size(swap.total),
+                     disk=disk,
+                     disk_bar=get_progress_bar_string(disk),
+                     disk_t=get_readable_file_size(total),
+                     disk_u=get_readable_file_size(used),
+                     disk_f=get_readable_file_size(free),
+                     up_data=get_readable_file_size(
+                         net_io_counters().bytes_sent),
+                     dl_data=get_readable_file_size(
+                         net_io_counters().bytes_recv)
+                     )
+    await sendMessage(message, stats, photo='IMAGES')
     await auto_delete_message(message, reply_message)
 
 
 async def start(_, message):
-    if len(message.command) > 1:
+    buttons = ButtonMaker()
+    buttons.ubutton(BotTheme('ST_BN1_NAME'), BotTheme('ST_BN1_URL'))
+    buttons.ubutton(BotTheme('ST_BN2_NAME'), BotTheme('ST_BN2_URL'))
+    reply_markup = buttons.build_menu(2)
+    if len(message.command) > 1 and message.command[1] == "wzmlx":
+        await message.delete()
+    elif len(message.command) > 1 and config_dict['TOKEN_TIMEOUT']:
         userid = message.from_user.id
-        input_token = message.command[1]
-        if userid not in user_data:
-            return await sendMessage(message, 'This token is not yours!\n\nKindly generate your own.')
-        data = user_data[userid]
+        encrypted_url = message.command[1]
+        input_token, pre_uid = (b64decode(encrypted_url.encode()).decode()).split('&&')
+        if int(pre_uid) != userid:
+            return await sendMessage(message, '<b>Temporary Token is not yours!</b>\n\n<i>Kindly generate your own.</i>')
+        data = user_data.get(userid, {})
         if 'token' not in data or data['token'] != input_token:
-            return await sendMessage(message, 'Token already used!\n\nKindly generate a new one.')
-        data['token'] = str(uuid4())
-        data['time'] = time()
-        user_data[userid].update(data)
-        msg = 'Token refreshed successfully!\n\n'
-        msg += f'Validity: {get_readable_time(int(config_dict["TOKEN_TIMEOUT"]))}'
-        return await sendMessage(message, msg)
+            return await sendMessage(message, '<b>Temporary Token already used!</b>\n\n<i>Kindly generate a new one.</i>')
+        elif config_dict['LOGIN_PASS'] is not None and data['token'] == config_dict['LOGIN_PASS']:
+            return await sendMessage(message, '<b>Bot Already Logged In via Password</b>\n\n<i>No Need to Accept Temp Tokens.</i>')
+        buttons.ibutton('Activate Temporary Token', f'pass {input_token}', 'header')
+        reply_markup = buttons.build_menu(2)
+        msg = '<b><u>Generated Temporary Login Token!</u></b>\n\n'
+        msg += f'<b>Temp Token:</b> <code>{input_token}</code>\n\n'
+        msg += f'<b>Validity:</b> {get_readable_time(int(config_dict["TOKEN_TIMEOUT"]))}'
+        return await sendMessage(message, msg, reply_markup)
+    elif await CustomFilters.authorized(client, message):
+        start_string = BotTheme('ST_MSG', help_command=f"/{BotCommands.HelpCommand}")
+        await sendMessage(message, start_string, reply_markup, photo='IMAGES')
     elif config_dict['DM_MODE']:
-        start_string = 'Bot Started.\n' \
-                       'Now I can send your stuff here.\n' \
-                       'Use me here: @Z_Mirror'
+        await sendMessage(message, BotTheme('ST_BOTPM'), reply_markup, photo='IMAGES')
     else:
-        start_string = 'Sorry, you cant use me here!\n' \
-                       'Join @Z_Mirror to use me.\n' \
-                       'Thank You'
-    await sendMessage(message, start_string)
+        await sendMessage(message, BotTheme('ST_UNAUTH'), reply_markup, photo='IMAGES')
+    await DbManger().update_pm_users(message.from_user.id)
+
+async def token_callback(_, query):
+    user_id = query.from_user.id
+    input_token = query.data.split()[1]
+    data = user_data.get(user_id, {})
+    if 'token' not in data or data['token'] != input_token:
+        return await query.answer('Already Used, Generate New One', show_alert=True)
+    update_user_ldata(user_id, 'token', str(uuid4()))
+    update_user_ldata(user_id, 'time', time())
+    await query.answer('Activated Temporary Token!', show_alert=True)
+    kb = query.message.reply_markup.inline_keyboard[1:]
+    kb.insert(0, [InlineKeyboardButton('✅️ Activated ✅', callback_data='pass activated')])
+    await query.edit_message_reply_markup(InlineKeyboardMarkup(kb))
+
+
+async def login(_, message):
+    if config_dict['LOGIN_PASS'] is None:
+        return
+    elif len(message.command) > 1:
+        user_id = message.from_user.id
+        input_pass = message.command[1]
+        if user_data.get(user_id, {}).get('token', '') == config_dict['LOGIN_PASS']:
+            return await sendMessage(message, '<b>Already Bot Login In!</b>')
+        if input_pass == config_dict['LOGIN_PASS']:
+            update_user_ldata(user_id, 'token', config_dict['LOGIN_PASS'])
+            return await sendMessage(message, '<b>Bot Permanent Login Successfully!</b>')
+        else:
+            return await sendMessage(message, '<b>Invalid Password!</b>\n\nKindly put the correct Password .')
+    else:
+        await sendMessage(message, '<b>Bot Login Usage :</b>\n\n<code>/cmd {password}</code>')
 
 
 async def restart(_, message):
@@ -152,22 +175,51 @@ async def restart(_, message):
 @new_thread
 async def ping(_, message):
     start_time = monotonic()
-    reply = await sendMessage(message, "Starting Ping")
+    reply = await sendMessage(message, BotTheme('PING')),)
     end_time = monotonic()
     ping_time = int((end_time - start_time) * 1000)
-    await editMessage(reply, f'{ping_time} ms')
+    await editMessage(reply, BotTheme('PING_VALUE', value=(end_time - start_time)))
 
 async def log(_, message):
-    await sendFile(message, 'Z_Logs.txt')
+    buttons = ButtonMaker()
+    buttons.ibutton('📑 Log Display', f'wzmlx {message.from_user.id} logdisplay')
+    await sendFile(message, 'Z_Log.txt', buttons=buttons.build_menu(1))
 
-help_string = f'''
+async def search_images():
+    if config_dict['IMG_SEARCH']:
+        try:
+            query_list = config_dict['IMG_SEARCH']
+            total_pages = config_dict['IMG_PAGE']
+            base_url = "https://www.wallpaperflare.com/search"
+
+            for query in query_list:
+                query = query.strip().replace(" ", "+")
+                for page in range(1, total_pages + 1):
+                    url = f"{base_url}?wallpaper={query}&width=1280&height=720&page={page}"
+                    r = rget(url)
+                    soup = BeautifulSoup(r.text, "html.parser")
+                    images = soup.select('img[data-src^="https://c4.wallpaperflare.com/wallpaper"]')
+                    for img in images:
+                        img_url = img['data-src']
+                        if img_url not in config_dict['IMAGES']:
+                            config_dict['IMAGES'].append(img_url)
+            if len(config_dict['IMAGES']) != 0:
+                config_dict['STATUS_LIMIT'] = 2
+            if DATABASE_URL:
+                await DbManger().update_config({'IMAGES': config_dict['IMAGES'], 'STATUS_LIMIT': config_dict['STATUS_LIMIT']})
+        except Exception as e:
+            LOGGER.error(f"An error occurred: {e}")
+
+
+help_string =  f'''<b><i>㊂ Help Guide :</i></b>
+
 <b>NOTE: Click on any CMD to see more detalis.</b>
 
-/{BotCommands.MirrorCommand[0]} or /{BotCommands.MirrorCommand[1]}: Upload to Cloud Drive.
+<b>Use Mirror commands to download your link/file/rcl</b>
+➥ /{BotCommands.MirrorCommand[0]} or /{BotCommands.MirrorCommand[1]}: Download via file/url/media to Upload to Cloud Drive.
 
 <b>Use qBit commands for torrents only:</b>
 /{BotCommands.QbMirrorCommand[0]} or /{BotCommands.QbMirrorCommand[1]}: Download using qBittorrent and Upload to Cloud Drive.
-
 /{BotCommands.BtSelectCommand}: Select files from torrents by gid or reply.
 /{BotCommands.CategorySelect}: Change upload category for Google Drive.
 
@@ -185,6 +237,7 @@ help_string = f'''
 /{BotCommands.CloneCommand}: Copy file/folder to Cloud Drive.
 /{BotCommands.CountCommand} [drive_url]: Count file/folder of Google Drive.
 /{BotCommands.DeleteCommand} [drive_url]: Delete file/folder from Google Drive (Only Owner & Sudo).
+➥ /{BotCommands.GDCleanCommand[0]} or /{BotCommands.GDCleanCommand[1]} [drive_id]: Delete all files from specific folder in Google Drive.
 
 <b>Cancel Tasks:</b>
 /{BotCommands.CancelMirror}: Cancel task by gid or reply.
@@ -206,6 +259,7 @@ help_string = f'''
 /{BotCommands.RmSudoCommand}: Remove sudo users (Only Owner).
 
 <b>Bot Stats:</b>
+➥ /{BotCommands.BroadcastCommand[0]} or /{BotCommands.BroadcastCommand[1]} [reply_msg]: Broadcast to PM users who have started the bot anytime.
 /{BotCommands.StatusCommand[0]} or /{BotCommands.StatusCommand[1]}: Shows a status of all active tasks.
 /{BotCommands.StatsCommand[0]} or /{BotCommands.StatsCommand[1]}: Show server stats.
 /{BotCommands.PingCommand[0]} or /{BotCommands.PingCommand[1]}: Check how long it takes to Ping the Bot.
@@ -215,11 +269,25 @@ help_string = f'''
 /{BotCommands.RestartCommand[1]}: Restart and update all bots (Only Owner & Sudo).
 /{BotCommands.LogCommand}: Get a log file of the bot. Handy for getting crash reports (Only Owner & Sudo).
 
+<b>Executors:</b>
+➥ /{BotCommands.ShellCommand}: Run shell commands (Only Owner).
+➥ /{BotCommands.EvalCommand}: Run Python Code Line | Lines (Only Owner).
+➥ /{BotCommands.ExecCommand}: Run Commands In Exec (Only Owner).
+➥ /{BotCommands.ClearLocalsCommand}: Clear {BotCommands.EvalCommand} or {BotCommands.ExecCommand} locals (Only Owner).
+➥ /exportsession: Generate User StringSession of Same Pyro Version (Only Owner).
+
 <b>Extras:</b>
-/{BotCommands.ShellCommand}: Run shell commands (Only Owner).
-/{BotCommands.EvalCommand}: Run Python Code Line | Lines (Only Owner).
-/{BotCommands.ExecCommand}: Run Commands In Exec (Only Owner).
-/{BotCommands.ClearLocalsCommand}: Clear {BotCommands.EvalCommand} or {BotCommands.ExecCommand} locals (Only Owner).
+➥ /{BotCommands.SpeedCommand[0]} or /{BotCommands.SpeedCommand[1]}: Check Speed in VPS/Server.
+➥ /{BotCommands.AddImageCommand} [url/photo]: Add Images in Bot
+➥ /{BotCommands.ImagesCommand}: Generate grid of Stored Images.
+➥ /{BotCommands.MediaInfoCommand[0]} or /{BotCommands.MediaInfoCommand[1]} [url/media]: Generate MediaInfo of Media or DL Urls
+
+<b>Movie/TV Shows/Drama Search:</b>
+➥ /{BotCommands.IMDBCommand}: Search in IMDB.
+➥ /{BotCommands.AniListCommand}: Search for anime in AniList.
+➥ /{BotCommands.AnimeHelpCommand}: Anime help guide.
+➥ /{BotCommands.MyDramaListCommand}: Search in MyDramaList.
+
 
 <b>RSS Feed:</b>
 /{BotCommands.RssCommand}: Open RSS Menu.
@@ -242,8 +310,8 @@ async def restart_notification():
 
     async def send_incompelete_task_message(cid, msg):
         try:
-            if msg.startswith('Restarted Successfully!'):
-                await bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text='Restarted Successfully!')
+            if msg.startswith(BotTheme('RESTART_SUCCESS')):
+                await bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=msg)
                 await bot.send_message(chat_id, msg, disable_web_page_preview=True, reply_to_message_id=msg_id)
                 await aioremove(".restartmsg")
             else:
@@ -254,7 +322,7 @@ async def restart_notification():
     if DATABASE_URL:
         if INCOMPLETE_TASK_NOTIFIER and (notifier_dict := await DbManger().get_incomplete_tasks()):
             for cid, data in notifier_dict.items():
-                msg = 'Restarted Successfully!' if cid == chat_id else 'Bot Restarted!'
+                msg = BotTheme('RESTART_SUCCESS', time=now.strftime('%I:%M:%S %p'), date=now.strftime('%d/%m/%y'), timz=config_dict['TIMEZONE'], version=get_version()) if cid == chat_id else BotTheme('RESTARTED')
                 for tag, links in data.items():
                     msg += f"\n\n👤 {tag} Do your tasks again. \n"
                     for index, link in enumerate(links, start=1):
@@ -265,13 +333,14 @@ async def restart_notification():
                 if msg:
                     await send_incompelete_task_message(cid, msg)
 
+
         if STOP_DUPLICATE_TASKS:
             await DbManger().clear_download_links()
 
 
     if await aiopath.isfile(".restartmsg"):
         try:
-            await bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text='Restarted Successfully!')
+            await bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=BotTheme('RESTART_SUCCESS', time=now.strftime('%I:%M:%S %p'), date=now.strftime('%d/%m/%y'), timz=config_dict['TIMEZONE'], version=get_version()))
         except:
             pass
         await aioremove(".restartmsg")
@@ -282,7 +351,11 @@ async def main():
     await sync_to_async(start_aria2_listener, wait=False)
 
     bot.add_handler(MessageHandler(
-        start, filters=command(BotCommands.StartCommand)))
+        start, filters=command(BotCommands.StartCommand) & private))
+    bot.add_handler(CallbackQueryHandler(
+        token_callback, filters=regex(r'^pass')))
+    bot.add_handler(MessageHandler(
+        login, filters=command(BotCommands.LoginCommand) & private))
     bot.add_handler(MessageHandler(log, filters=command(
         BotCommands.LogCommand) & CustomFilters.sudo))
     bot.add_handler(MessageHandler(restart, filters=command(

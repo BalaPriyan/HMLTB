@@ -11,7 +11,7 @@ from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.message_utils import deleteMessage, sendMessage
-
+from bot.helper.themes import BotTheme
 
 @new_task
 async def countNode(_, message):
@@ -28,7 +28,7 @@ async def countNode(_, message):
         link = reply_to.text.split(maxsplit=1)[0].strip()
 
     if is_gdrive_link(link):
-        msg = await sendMessage(message, f"Counting: <code>{link}</code>")
+        sg = await sendMessage(message, BotTheme('COUNT_MSG', LINK=link))
         gd = GoogleDriveHelper()
         start_time = time()
         name, mime_type, size, files, folders = await sync_to_async(gd.count, link)
@@ -37,20 +37,18 @@ async def countNode(_, message):
             await sendMessage(message, name)
             return
         await deleteMessage(msg)
-        msg = f'<b>File Name</b>: <code>{name}</code>'
-        msg += f'\n\n<b>Size</b>: {get_readable_file_size(size)}'
-        msg += f'\n<b>Type</b>: {mime_type}'
+        msg = BotTheme('COUNT_NAME', COUNT_NAME=name)
+        msg += BotTheme('COUNT_SIZE', COUNT_SIZE=get_readable_file_size(size))
+        msg += BotTheme('COUNT_TYPE', COUNT_TYPE=mime_type)
         if mime_type == 'Folder':
-            msg += f'\n<b>SubFolders</b>: {folders}'
-            msg += f'\n<b>Files</b>: {files}'
-        msg += f'\n<b>Elapsed</b>: {get_readable_time(elapsed)}'
-        msg += f'\n\n<b>cc</b>: {tag}'
-        msg += f'\nThanks For Using <b>@Z_Mirror</b>'
+            msg += BotTheme('COUNT_SUB', COUNT_SUB=folders)
+            msg += BotTheme('COUNT_FILE', COUNT_FILE=files)
+        msg += BotTheme('COUNT_CC', COUNT_CC=tag)
     else:
         msg = 'Send Gdrive link along with command or by replying to the link by command'
     if config_dict['DELETE_LINKS']:
         await deleteMessage(message.reply_to_message)
-    await sendMessage(message, msg)
+    await sendMessage(message, msg, photo='IMAGES')
 
 
 bot.add_handler(MessageHandler(countNode, filters=command(

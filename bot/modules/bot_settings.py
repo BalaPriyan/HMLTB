@@ -664,7 +664,6 @@ async def load_config():
                         'MEGA_PASSWORD': MEGA_PASSWORD,
                         'MIRROR_LOG_ID': MIRROR_LOG_ID,
                         'MDL_TEMPLATE': MDL_TEMPLATE,
-                        
                         'OWNER_ID': OWNER_ID,
                         'PLAYLIST_LIMIT': PLAYLIST_LIMIT,
                         'QUEUE_ALL': QUEUE_ALL,
@@ -714,7 +713,7 @@ async def load_config():
     await gather(initiate_search_tools(), start_from_queued(), rclone_serve_booter())
 
 
-async def get_buttons(key=None, edit_type=None):
+async def get_buttons(key=None, edit_type=None, edit_mode=None, mess=None):
     buttons = ButtonMaker()
     if key is None:
         if DATABASE_URL:
@@ -773,7 +772,13 @@ Timeout: 60 sec'''
                 f'{int(x/10)}', f"botset start qbit {x}", position='footer')
         msg = f'Qbittorrent Options | Page: {int(START/10)} | State: {STATE}'
     elif edit_type == 'editvar':
-        msg = ''
+        msg = f'<b>Variable:</b> <code>{key}</code>\n\n'
+        msg += f'<b>Description:</b> {default_desp.get(key, "No Description Provided")}\n\n'
+        if mess.chat.type == ChatType.PRIVATE:
+            msg += f'<b>Value:</b> <spoiler> {config_dict.get(key, "None")} </spoiler>\n\n'
+        else:
+            buttons.ibutton('View Var Value',
+                            f"botset showvar {key}", position="header")
         buttons.ibutton('Back', "botset back var")
         if key not in ['TELEGRAM_HASH', 'TELEGRAM_API', 'OWNER_ID', 'BOT_TOKEN']:
             buttons.ibutton('Default', f"botset resetvar {key}")
@@ -781,7 +786,12 @@ Timeout: 60 sec'''
         if key in ['SUDO_USERS', 'CMD_SUFFIX', 'OWNER_ID', 'USER_SESSION_STRING', 'TELEGRAM_HASH',
                    'TELEGRAM_API', 'AUTHORIZED_CHATS', 'DATABASE_URL', 'BOT_TOKEN', 'DOWNLOAD_DIR']:
             msg += 'Restart required for this edit to take effect!\n\n'
-        msg += f'Send a valid value for {key}. Timeout: 60 sec'
+        if edit_mode and key not in bool_vars:
+            msg += '<i>Send a valid value for the above Var.</i> <b>Timeout:</b> 60 sec'
+        if key in bool_vars:
+            msg += '<i>Choose a valid value for the above Var</i>'
+            buttons.ibutton('True', f"botset boolvar {key} on")
+            buttons.ibutton('False', f"botset boolvar {key} off")
     elif edit_type == 'editaria':
         buttons.ibutton('Back', "botset back aria")
         if key != 'newkey':
@@ -801,8 +811,8 @@ Timeout: 60 sec'''
     return msg, button
 
 
-async def update_buttons(message, key=None, edit_type=None):
-    msg, button = await get_buttons(key, edit_type)
+async def update_buttons(message, key=None, edit_type=None, edit_mode=None):
+    msg, button = await get_buttons(key, edit_type, edit_mode, message)
     await editMessage(message, msg, button)
 
 
@@ -815,7 +825,7 @@ async def edit_variable(_, message, pre_message, key):
     elif key == 'DOWNLOAD_DIR':
         if not value.endswith('/'):
             value += '/'
-    elif key in ['DUMP_CHAT_ID', 'RSS_CHAT_ID', 'LOG_CHAT_ID', 'USER_DUMP']:
+    elif key in ['LINKS_LOG_ID', 'RSS_CHAT_ID', 'USER_DUMP']:
         if value.isdigit() or value.startswith('-'):
             value = int(value)
     elif key == 'STATUS_UPDATE_INTERVAL':
@@ -843,6 +853,10 @@ async def edit_variable(_, message, pre_message, key):
         value = max(int(value), 5)
     elif key == 'LEECH_SPLIT_SIZE':
         value = min(int(value), MAX_SPLIT_SIZE)
+    elif key == 'CAP_FONT':
+        value = value.strip().lower()
+        if value not in ['b', 'i', 'u', 's', 'spoiler', 'code']:
+            value = 'code'
     elif key == 'BASE_URL_PORT':
         value = int(value)
         if config_dict['BASE_URL']:

@@ -1,3 +1,6 @@
+from feedparser import parse as feedparse
+
+
 from asyncio import Lock, sleep
 from datetime import datetime, timedelta
 from functools import partial

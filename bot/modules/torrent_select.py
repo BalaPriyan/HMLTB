@@ -3,7 +3,7 @@ from aiofiles.os import remove as aioremove
 from pyrogram.filters import command, regex
 from pyrogram.handlers import CallbackQueryHandler, MessageHandler
 
-from bot import LOGGER, aria2, bot, download_dict, download_dict_lock
+from bot import LOGGER, aria2, bot, download_dict, download_dict_lock, bot_name, OWNER_ID, user_data
 from bot.helper.ext_utils.help_messages import TOR_SEL_HELP_MESSAGE
 from bot.helper.ext_utils.bot_utils import (MirrorStatus, bt_selection_buttons,
                                             getDownloadByGid, sync_to_async)
@@ -17,16 +17,13 @@ from bot.helper.telegram_helper.message_utils import (anno_checker, isAdmin,
 
 
 async def select(client, message):
-    if not message.from_user:
-        message.from_user = await anno_checker(message)
-    if not message.from_user:
-        return
     user_id = message.from_user.id
-    if not await isAdmin(message, user_id) and await request_limiter(message):
-        return
-    msg = message.text.split()
+    msg = message.text.split('_', maxsplit=1)
     if len(msg) > 1:
-        gid = msg[1]
+        cmd_data = msg[1].split('@', maxsplit=1)
+        if len(cmd_data) > 1 and cmd_data[1].strip() != bot_name:
+            return
+        gid = cmd_data[0]
         dl = await getDownloadByGid(gid)
         if dl is None:
             await sendMessage(message, f"GID: <code>{gid}</code> Not Found.")
@@ -42,7 +39,8 @@ async def select(client, message):
         await auto_delete_message(message, reply_message)
         return
 
-    if not await CustomFilters.sudo(client, message) and dl.message.from_user.id != user_id:
+    if OWNER_ID != user_id and dl.message.from_user.id != user_id and \
+       (user_id not in user_data or not user_data[user_id].get('is_sudo')):
         await sendMessage(message, "This task is not for you!")
         return
     if dl.status() not in [MirrorStatus.STATUS_DOWNLOADING, MirrorStatus.STATUS_PAUSED, MirrorStatus.STATUS_QUEUEDL]:

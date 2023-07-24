@@ -14,7 +14,7 @@ from bot.helper.ext_utils.bot_utils import (arg_parser, cmd_exec,
                                             new_task, sync_to_async)
 from bot.helper.ext_utils.exceptions import DirectDownloadLinkException
 from bot.helper.ext_utils.help_messages import CLONE_HELP_MESSAGE
-from bot.helper.ext_utils.task_manager import limit_checker
+from bot.helper.ext_utils.task_manager import limit_checker, task_utils
 from bot.helper.z_utils import none_admin_utils, stop_duplicate_tasks
 from bot.helper.listeners.tasks_listener import MirrorLeechListener
 from bot.helper.mirror_utils.download_utils.direct_link_generator import direct_link_generator
@@ -37,8 +37,10 @@ from bot.helper.telegram_helper.message_utils import (anno_checker,
                                                       sendMessage,
                                                       sendStatusMessage)
 
+from bot.helper.themes import BotTheme
 
-async def rcloneNode(client, message, link, dst_path, rcf, listener):
+
+async def rcloneNode(client, message, link, dst_path, rcf, listener, tag):
     if link == 'rcl':
         link = await RcloneList(client, message).get_rclone_path('rcd')
         if not is_rclone_path(link):
@@ -164,8 +166,7 @@ async def gdcloneNode(message, link, listener):
             LOGGER.info('Checking File/Folder if already in Drive...')
             telegraph_content, contents_no = await sync_to_async(gd.drive_list, name, True)
             if telegraph_content:
-                LOGGER.info('File/Folder is already available in Drive.')
-                msg = f"File/Folder is already available in Drive.\nHere are {contents_no} list results:"
+                msg = BotTheme('STOP_DUPLICATE', content=contents_no)
                 button = await get_telegraph_list(telegraph_content)
                 await sendMessage(message, msg, button)
                 await delete_links(message)

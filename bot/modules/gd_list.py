@@ -1,5 +1,5 @@
 from time import time
-
+from random import choice
 from pyrogram.filters import command, regex
 from pyrogram.handlers import CallbackQueryHandler, MessageHandler
 
@@ -16,6 +16,9 @@ from bot.helper.telegram_helper.message_utils import (anno_checker, deleteMessag
                                                       auto_delete_message,
                                                       request_limiter,
                                                       sendMessage)
+from bot.helper.themes import BotTheme
+
+
 
 
 async def list_buttons(user_id, isRecursive=True):
@@ -41,11 +44,10 @@ async def _list_drive(key, message, item_type, isRecursive):
         except Exception as e:
             await editMessage(message, e)
             return
-        msg = f'<b>Found {contents_no} result for <i>{key}</i></b>\n\n<b>Type</b>: {item_type} | <b>Recursive list</b>: {isRecursive}\n<b>Elapsed</b>: {Elapsed}'
+         msg = BotTheme('LIST_FOUND', NO=contents_no, NAME=key)
         await editMessage(message, msg, button)
     else:
-        msg = f'No result found for <i>{key}</i>\n\n<b>Type</b>: {item_type} | <b>Recursive list</b>: {isRecursive}\n<b>Elapsed</b>: {Elapsed}'
-        reply_message = await editMessage(message, msg)
+        await editMessage(message, BotTheme('LIST_NOT_FOUND', NAME=key))
         await auto_delete_message(message, reply_message)
     if config_dict['DELETE_LINKS']:
         await deleteMessage(message.reply_to_message)
@@ -70,7 +72,7 @@ async def select_type(_, query):
     await query.answer()
     item_type = data[2]
     isRecursive = eval(data[3])
-    await editMessage(message, f"<b>Searching for <i>{key}</i></b>")
+    await editMessage(message, BotTheme('LIST_SEARCHING', NAME=key))
     await _list_drive(key, message, item_type, isRecursive)
 
 

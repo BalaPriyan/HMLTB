@@ -3,15 +3,14 @@ from asyncio import sleep
 from pyrogram.filters import command, regex
 from pyrogram.handlers import CallbackQueryHandler, MessageHandler
 
-from bot import bot, bot_name, bot_loop, download_dict, download_dict_lock
+from bot import bot, bot_name, bot_loop, download_dict, download_dict_lock, OWNER_ID, user_data
 from bot.helper.ext_utils.bot_utils import (MirrorStatus, getAllDownload,
                                             getDownloadByGid, new_task)
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.button_build import ButtonMaker
 from bot.helper.telegram_helper.filters import CustomFilters
-from bot.helper.telegram_helper.message_utils import (anno_checker,
-                                                      editMessage, sendMessage)
-
+from bot.helper.telegram_helper.message_utils import (anno_checker, editMessage, sendMessage, auto_delete_message)
+from bot.helper.telegram_helper import button_build
 
 async def cancel_mirror(client, message):
     if not message.from_user:
@@ -40,10 +39,14 @@ async def cancel_mirror(client, message):
             f" or send <code>/{BotCommands.CancelMirror}_GID@{bot_name}</code> to cancel it!"
         await sendMessage(message, msg)
         return
-
+    if OWNER_ID != user_id and dl.message.from_user.id != user_id and \
+       (user_id not in user_data or not user_data[user_id].get('is_sudo')):
+        await sendMessage(message, "This task is not for you!")
+        return
     if not await CustomFilters.sudo(client, message) and dl.message.from_user.id != user_id:
         await sendMessage(message, "This task is not for you!")
         return
+    
     obj = dl.download()
     await obj.cancel_download()
 
@@ -100,19 +103,19 @@ async def cancell_all_buttons(client, message):
     if user_id and not await getAllDownload('all', user_id):
         return await sendMessage(message, f"{user_id} Don't have any active task!")
     msg_id = message.id
-    buttons = ButtonMaker()
-    buttons.ibutton("Downloading",  f"cnall {MirrorStatus.STATUS_DOWNLOADING} {msg_id}")
-    buttons.ibutton("Uploading",    f"cnall {MirrorStatus.STATUS_UPLOADING} {msg_id}")
-    buttons.ibutton("Seeding",      f"cnall {MirrorStatus.STATUS_SEEDING} {msg_id}")
-    buttons.ibutton("Cloning",      f"cnall {MirrorStatus.STATUS_CLONING} {msg_id}")
-    buttons.ibutton("Extracting",   f"cnall {MirrorStatus.STATUS_EXTRACTING} {msg_id}")
-    buttons.ibutton("Archiving",    f"cnall {MirrorStatus.STATUS_ARCHIVING} {msg_id}")
-    buttons.ibutton("QueuedDl",     f"cnall {MirrorStatus.STATUS_QUEUEDL} {msg_id}")
-    buttons.ibutton("QueuedUp",     f"cnall {MirrorStatus.STATUS_QUEUEUP} {msg_id}")
+    buttons = button_build.ButtonMaker()
+    buttons.ibutton("Downloading", f"canall {MirrorStatus.STATUS_DOWNLOADING}")
+    buttons.ibutton("Uploading", f"canall {MirrorStatus.STATUS_UPLOADING}")
+    buttons.ibutton("Seeding", f"canall {MirrorStatus.STATUS_SEEDING}")
+    buttons.ibutton("Cloning", f"canall {MirrorStatus.STATUS_CLONING}")
+    buttons.ibutton("Extracting", f"canall {MirrorStatus.STATUS_EXTRACTING}")
+    buttons.ibutton("Archiving", f"canall {MirrorStatus.STATUS_ARCHIVING}")
+    buttons.ibutton("QueuedDl", f"canall {MirrorStatus.STATUS_QUEUEDL}")
+    buttons.ibutton("QueuedUp", f"canall {MirrorStatus.STATUS_QUEUEUP}")
     buttons.ibutton("Splitting",    f"cnall {MirrorStatus.STATUS_SPLITTING} {msg_id}")
-    buttons.ibutton("Paused",       f"cnall {MirrorStatus.STATUS_PAUSED} {msg_id}")
-    buttons.ibutton("All",          f"cnall all {msg_id}")
-    buttons.ibutton("Close",        f"cnall close {msg_id}")
+    buttons.ibutton("Paused", f"canall {MirrorStatus.STATUS_PAUSED}")
+    buttons.ibutton("All", "canall all")
+    buttons.ibutton("Close", "canall close")
     button = buttons.build_menu(2)
     can_msg = await sendMessage(message, 'Choose tasks to cancel. You have 30 Secounds only', button)
     cancel_listener[msg_id] = [user_id, can_msg, message.from_user.id, tag]
@@ -150,5 +153,5 @@ async def _auto_cancel(msg, msg_id):
 bot.add_handler(MessageHandler(cancel_mirror, filters=regex(
     f"^/{BotCommands.CancelMirror}(_\w+)?(?!all)") & CustomFilters.authorized))
 bot.add_handler(MessageHandler(cancell_all_buttons, filters=command(
-    BotCommands.CancelAllCommand) & CustomFilters.authorized))
-bot.add_handler(CallbackQueryHandler(cancel_all_update, filters=regex("^cnall")))
+    BotCommands.CancelAllCommand) & CustomFilters.sudo))
+bot.add_handler(CallbackQueryHandler(cancel_all_update, filters=regex(r"^canall")))

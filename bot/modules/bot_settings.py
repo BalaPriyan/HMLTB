@@ -1121,7 +1121,7 @@ async def edit_bot_settings(client, query):
         await update_buttons(message, data[1])
     elif data[1] == 'resetvar':
         handler_dict[message.chat.id] = False
-        await query.answer()
+        await query.answer('Reset Done!', show_alert=True)
         value = ''
         if data[2] in default_values:
             value = default_values[data[2]]
@@ -1327,7 +1327,10 @@ async def bot_settings(_, message):
     globals()['START'] = 0
     await sendMessage(message, msg, button)
 
-
+bot.add_handler(MessageHandler(bot_settings, filters=command(
+    BotCommands.BotSetCommand) & CustomFilters.sudo))
+bot.add_handler(CallbackQueryHandler(edit_bot_settings,
+                filters=regex("^botset") & CustomFilters.sudo))
 
 bot.add_handler(MessageHandler(bot_settings, filters=command(
     BotCommands.BotSetCommand) & CustomFilters.sudo))

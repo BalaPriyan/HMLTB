@@ -1,18 +1,24 @@
+from pytz import timezone
+from datetime import datetime
+
+
 from asyncio import Lock
 from collections import OrderedDict
 from faulthandler import enable as faulthandler_enable
 from logging import (INFO, FileHandler, StreamHandler, basicConfig,
-                     error, getLogger, info, warning)
+                     error, getLogger, info, warning, Formatter)
 from os import environ, path as ospath, remove, getcwd
 from socket import setdefaulttimeout
 from subprocess import Popen, run as zrun, check_output
 from threading import Thread
 from time import sleep, time
+from socket import setdefaulttimeout
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aria2p import API as ariaAPI
 from aria2p import Client as ariaClient
 from dotenv import load_dotenv
+from dotenv import dotenv_values
 from pymongo import MongoClient
 from pyrogram import Client as tgClient
 from pyrogram import enums
@@ -48,6 +54,12 @@ queued_up = {}
 categories_dict = {}
 non_queued_dl = set()
 non_queued_up = set()
+
+def get_version():
+    MAJOR = '1'
+    MINOR = '2'
+    PATCH = '5'
+    return f"v{MAJOR}.{MINOR}.{PATCH}-x"
 
 try:
     if bool(environ.get('_____REMOVE_THIS_LINE_____')):
@@ -122,6 +134,16 @@ TELEGRAM_HASH = environ.get('TELEGRAM_HASH', '')
 if len(TELEGRAM_HASH) == 0:
     error("TELEGRAM_HASH variable is missing! Exiting now")
     exit(1)
+
+TIMEZONE = environ.get('TIMEZONE', '')
+if len(TIMEZONE) == 0:
+    TIMEZONE = 'Asia/Kolkata'
+
+
+def changetz(*args):
+    return datetime.now(timezone(TIMEZONE)).timetuple()
+Formatter.converter = changetz
+log_info("TIMEZONE synced with logging status")
 
 GDRIVE_ID = environ.get('GDRIVE_ID', '')
 if len(GDRIVE_ID) == 0:
@@ -200,13 +222,37 @@ SEARCH_API_LINK = environ.get('SEARCH_API_LINK', '').rstrip("/")
 if len(SEARCH_API_LINK) == 0:
     SEARCH_API_LINK = ''
 
+CAP_FONT = environ.get('CAP_FONT', '').lower()
+if CAP_FONT.strip() not in ['', 'b', 'i', 'u', 's', 'spoiler', 'code']:
+    CAP_FONT = 'code'
+
 LEECH_FILENAME_PREFIX = environ.get('LEECH_FILENAME_PREFIX', '')
 if len(LEECH_FILENAME_PREFIX) == 0:
     LEECH_FILENAME_PREFIX = ''
 
+LEECH_FILENAME_SUFFIX = environ.get('LEECH_FILENAME_SUFFIX', '')
+if len(LEECH_FILENAME_SUFFIX) == 0:
+    LEECH_FILENAME_SUFFIX = ''
+
+LEECH_FILENAME_CAPTION = environ.get('LEECH_FILENAME_CAPTION', '')
+if len(LEECH_FILENAME_CAPTION) == 0:
+    LEECH_FILENAME_CAPTION = ''
+
 LEECH_REMOVE_UNWANTED = environ.get('LEECH_REMOVE_UNWANTED', '')
 if len(LEECH_REMOVE_UNWANTED) == 0:
     LEECH_REMOVE_UNWANTED = ''
+
+MIRROR_FILENAME_PREFIX = environ.get('MIRROR_FILENAME_PREFIX', '')
+if len(MIRROR_FILENAME_PREFIX) == 0:
+    MIRROR_FILENAME_PREFIX = ''
+
+MIRROR_FILENAME_SUFFIX = environ.get('MIRROR_FILENAME_SUFFIX', '')
+if len(MIRROR_FILENAME_SUFFIX) == 0:
+    MIRROR_FILENAME_SUFFIX = ''
+
+MIRROR_REMOVE_UNWANTED = environ.get('MIRROR_FILENAME_REMNAME', '')
+if len(MIRROR_FILENAME_REMNAME) == 0:
+    MIRROR_FILENAME_REMNAME = ''
 
 SEARCH_PLUGINS = environ.get('SEARCH_PLUGINS', '')
 if len(SEARCH_PLUGINS) == 0:
@@ -219,6 +265,7 @@ if len(LEECH_SPLIT_SIZE) == 0 or int(LEECH_SPLIT_SIZE) > MAX_SPLIT_SIZE:
     LEECH_SPLIT_SIZE = MAX_SPLIT_SIZE
 else:
     LEECH_SPLIT_SIZE = int(LEECH_SPLIT_SIZE)
+
 
 STATUS_UPDATE_INTERVAL = environ.get('STATUS_UPDATE_INTERVAL', '')
 if len(STATUS_UPDATE_INTERVAL) == 0:
@@ -238,9 +285,6 @@ if len(YT_DLP_OPTIONS) == 0:
 
 SEARCH_LIMIT = environ.get('SEARCH_LIMIT', '')
 SEARCH_LIMIT = 0 if len(SEARCH_LIMIT) == 0 else int(SEARCH_LIMIT)
-
-DUMP_CHAT_ID = environ.get('DUMP_CHAT_ID', '')
-DUMP_CHAT_ID = '' if len(DUMP_CHAT_ID) == 0 else int(DUMP_CHAT_ID)
 
 STATUS_LIMIT = environ.get('STATUS_LIMIT', '')
 STATUS_LIMIT = 5 if len(STATUS_LIMIT) == 0 else int(STATUS_LIMIT)
@@ -283,6 +327,15 @@ WEB_PINCODE = WEB_PINCODE.lower() == 'true'
 AS_DOCUMENT = environ.get('AS_DOCUMENT', '')
 AS_DOCUMENT = AS_DOCUMENT.lower() == 'true'
 
+SHOW_MEDIAINFO = environ.get('SHOW_MEDIAINFO', '')
+SHOW_MEDIAINFO = SHOW_MEDIAINFO.lower() == 'true'
+
+SOURCE_LINK = environ.get('SOURCE_LINK', '')
+SOURCE_LINK = SOURCE_LINK.lower() == 'true'
+
+DELETE_LINKS = environ.get('DELETE_LINKS', '')
+DELETE_LINKS = DELETE_LINKS.lower() == 'true'
+
 EQUAL_SPLITS = environ.get('EQUAL_SPLITS', '')
 EQUAL_SPLITS = EQUAL_SPLITS.lower() == 'true'
 
@@ -300,11 +353,11 @@ if len(BASE_URL) == 0:
 
 UPSTREAM_REPO = environ.get('UPSTREAM_REPO', '')
 if len(UPSTREAM_REPO) == 0:
-    UPSTREAM_REPO = 'https://gitlab.com/Dawn-India/Z-Mirror'
+    UPSTREAM_REPO = 'https://github.com/BalaPriyan/HMLTB'
 
 UPSTREAM_BRANCH = environ.get('UPSTREAM_BRANCH', '')
 if len(UPSTREAM_BRANCH) == 0:
-    UPSTREAM_BRANCH = 'zh_run'
+    UPSTREAM_BRANCH = 'main'
 
 RCLONE_SERVE_URL = environ.get('RCLONE_SERVE_URL', '')
 if len(RCLONE_SERVE_URL) == 0:
@@ -321,14 +374,6 @@ if len(RCLONE_SERVE_USER) == 0:
 RCLONE_SERVE_PASS = environ.get('RCLONE_SERVE_PASS', '')
 if len(RCLONE_SERVE_PASS) == 0:
     RCLONE_SERVE_PASS = ''
-
-LOG_CHAT_ID = environ.get('LOG_CHAT_ID', '')
-if LOG_CHAT_ID.startswith('-100'):
-    LOG_CHAT_ID = int(LOG_CHAT_ID)
-elif LOG_CHAT_ID.startswith('@'):
-    LOG_CHAT_ID = LOG_CHAT_ID.removeprefix('@')
-else:
-    LOG_CHAT_ID = ''
 
 USER_MAX_TASKS = environ.get('USER_MAX_TASKS', '')
 USER_MAX_TASKS = '' if len(USER_MAX_TASKS) == 0 else int(USER_MAX_TASKS)
@@ -358,6 +403,9 @@ MEGA_LIMIT = '' if len(MEGA_LIMIT) == 0 else float(MEGA_LIMIT)
 LEECH_LIMIT = environ.get('LEECH_LIMIT', '')
 LEECH_LIMIT = '' if len(LEECH_LIMIT) == 0 else float(LEECH_LIMIT)
 
+PLAYLIST_LIMIT = environ.get('PLAYLIST_LIMIT', '')
+PLAYLIST_LIMIT = '' if len(PLAYLIST_LIMIT) == 0 else int(PLAYLIST_LIMIT)
+
 ENABLE_MESSAGE_FILTER = environ.get('ENABLE_MESSAGE_FILTER', '')
 ENABLE_MESSAGE_FILTER = ENABLE_MESSAGE_FILTER.lower() == 'true'
 
@@ -373,15 +421,75 @@ DISABLE_LEECH = DISABLE_LEECH.lower() == 'true'
 SET_COMMANDS = environ.get('SET_COMMANDS', '')
 SET_COMMANDS = SET_COMMANDS.lower() == 'true'
 
+CLEAN_LOG_MSG = environ.get('CLEAN_LOG_MSG', '')
+CLEAN_LOG_MSG = CLEAN_LOG_MSG.lower() == 'true'
+    
+SHOW_EXTRA_CMDS = environ.get('SHOW_EXTRA_CMDS', '')
+SHOW_EXTRA_CMDS = SHOW_EXTRA_CMDS.lower() == 'true'
+
 REQUEST_LIMITS = environ.get('REQUEST_LIMITS', '')
 if REQUEST_LIMITS.isdigit():
     REQUEST_LIMITS = max(int(REQUEST_LIMITS), 5)
 else:
     REQUEST_LIMITS = ''
-
+  
 DM_MODE = environ.get('DM_MODE', '')
 DM_MODE = DM_MODE.lower() if DM_MODE.lower() in [
     'leech', 'mirror', 'all'] else ''
+
+DAILY_TASK_LIMIT = environ.get('DAILY_TASK_LIMIT', '')
+DAILY_TASK_LIMIT = '' if len(DAILY_TASK_LIMIT) == 0 else int(DAILY_TASK_LIMIT)
+
+DAILY_MIRROR_LIMIT = environ.get('DAILY_MIRROR_LIMIT', '')
+DAILY_MIRROR_LIMIT = '' if len(
+    DAILY_MIRROR_LIMIT) == 0 else float(DAILY_MIRROR_LIMIT)
+
+DAILY_LEECH_LIMIT = environ.get('DAILY_LEECH_LIMIT', '')
+DAILY_LEECH_LIMIT = '' if len(
+    DAILY_LEECH_LIMIT) == 0 else float(DAILY_LEECH_LIMIT)
+
+DISABLE_DRIVE_LINK = environ.get('DISABLE_DRIVE_LINK', '')
+DISABLE_DRIVE_LINK = DISABLE_DRIVE_LINK.lower() == 'true'
+
+BOT_THEME = environ.get('BOT_THEME', '')
+if len(BOT_THEME) == 0:
+    BOT_THEME = 'minimal'
+
+IMAGES = environ.get('IMAGES', '')
+IMAGES = (IMAGES.replace("'", '').replace('"', '').replace(
+    '[', '').replace(']', '').replace(",", "")).split()
+if IMAGES:
+    STATUS_LIMIT = 2
+
+IMG_SEARCH = environ.get('IMG_SEARCH', '')
+IMG_SEARCH = (IMG_SEARCH.replace("'", '').replace('"', '').replace(
+    '[', '').replace(']', '').replace(",", "")).split()
+
+IMG_PAGE = environ.get('IMG_PAGE', '')
+IMG_PAGE = int(IMG_PAGE) if IMG_PAGE.isdigit() else ''
+
+AUTHOR_NAME = environ.get('AUTHOR_NAME', '')
+if len(AUTHOR_NAME) == 0:
+    AUTHOR_NAME = 'WZML-X'
+
+AUTHOR_URL = environ.get('AUTHOR_URL', '')
+if len(AUTHOR_URL) == 0:
+    AUTHOR_URL = 'https://t.me/WZML_X'
+
+TITLE_NAME = environ.get('TITLE_NAME', '')
+if len(TITLE_NAME) == 0:
+    TITLE_NAME = 'WZ-M/L-X'
+
+GD_INFO = environ.get('GD_INFO', '')
+if len(GD_INFO) == 0:
+    GD_INFO = 'Uploaded by WZML-X'
+
+SAVE_MSG = environ.get('SAVE_MSG', '')
+SAVE_MSG = SAVE_MSG.lower() == 'true'
+
+SAFE_MODE = environ.get('SAFE_MODE', '')
+SAFE_MODE = SAFE_MODE.lower() == 'true'
+
 
 DELETE_LINKS = environ.get('DELETE_LINKS', '')
 DELETE_LINKS = DELETE_LINKS.lower() == 'true'
@@ -396,12 +504,76 @@ FSUB_IDS = environ.get('FSUB_IDS', '')
 if len(FSUB_IDS) == 0:
     FSUB_IDS = ''
 
+LINKS_LOG_ID = environ.get('LINKS_LOG_ID', '')
+LINKS_LOG_ID = '' if len(LINKS_LOG_ID) == 0 else int(LINKS_LOG_ID)
+
+MIRROR_LOG_ID = environ.get('MIRROR_LOG_ID', '')
+if len(MIRROR_LOG_ID) == 0:
+    MIRROR_LOG_ID = ''
+    
+LEECH_LOG_ID = environ.get('LEECH_LOG_ID', '')
+if len(LEECH_LOG_ID) == 0:
+    LEECH_LOG_ID = ''
+
+
 USER_DUMP = environ.get('USER_DUMP', '')
 USER_DUMP = '' if len(USER_DUMP) == 0 else USER_DUMP
 if USER_DUMP.isdigit() or USER_DUMP.startswith('-'):
     USER_DUMP = int(USER_DUMP)
 
+LOGIN_PASS = environ.get('LOGIN_PASS', '')
+if len(LOGIN_PASS) == 0:
+    LOGIN_PASS = None
+
+IMDB_TEMPLATE = environ.get('IMDB_TEMPLATE', '')
+if len(IMDB_TEMPLATE) == 0:
+    IMDB_TEMPLATE = '''<b>Title: </b> {title} [{year}]
+<b>Also Known As:</b> {aka}
+<b>Rating ⭐️:</b> <i>{rating}</i>
+<b>Release Info: </b> <a href="{url_releaseinfo}">{release_date}</a>
+<b>Genre: </b>{genres}
+<b>IMDb URL:</b> {url}
+<b>Language: </b>{languages}
+<b>Country of Origin : </b> {countries}
+
+<b>Story Line: </b><code>{plot}</code>
+
+<a href="{url_cast}">Read More ...</a>'''
+
+ANIME_TEMPLATE = environ.get('ANIME_TEMPLATE', '')
+if len(ANIME_TEMPLATE) == 0:
+    ANIME_TEMPLATE = '''<b>{ro_title}</b>({na_title})
+<b>Format</b>: <code>{format}</code>
+<b>Status</b>: <code>{status}</code>
+<b>Start Date</b>: <code>{startdate}</code>
+<b>End Date</b>: <code>{enddate}</code>
+<b>Season</b>: <code>{season}</code>
+<b>Country</b>: {country}
+<b>Episodes</b>: <code>{episodes}</code>
+<b>Duration</b>: <code>{duration}</code>
+<b>Average Score</b>: <code>{avgscore}</code>
+<b>Genres</b>: {genres}
+<b>Hashtag</b>: {hashtag}
+<b>Studios</b>: {studios}
+
+<b>Description</b>: <i>{description}</i>'''
+
+MDL_TEMPLATE = environ.get('MDL_TEMPLATE', '')
+if len(MDL_TEMPLATE) == 0:
+    MDL_TEMPLATE = '''<b>Title:</b> {title}
+<b>Also Known As:</b> {aka}
+<b>Rating ⭐️:</b> <i>{rating}</i>
+<b>Release Info:</b> {aired_date}
+<b>Genre:</b> {genres}
+<b>MyDramaList URL:</b> {url}
+<b>Language:</b> #Korean
+<b>Country of Origin:</b> {country}
+
+<b>Story Line:</b> {synopsis}
+
+<a href='{url}'>Read More ...</a>'''
 config_dict = {
+    "ANIME_TEMPLATE": ANIME_TEMPLATE,
     "AS_DOCUMENT": AS_DOCUMENT,
     "AUTHORIZED_CHATS": AUTHORIZED_CHATS,
     "AUTO_DELETE_MESSAGE_DURATION": AUTO_DELETE_MESSAGE_DURATION,
@@ -409,10 +581,11 @@ config_dict = {
     "BASE_URL_PORT": BASE_URL_PORT,
     "BOT_TOKEN": BOT_TOKEN,
     "CMD_SUFFIX": CMD_SUFFIX,
+    "CAP_FONT": CAP_FONT,
     "DATABASE_URL": DATABASE_URL,
+    "DELETE_LINKS": DELETE_LINKS,
     "DEFAULT_UPLOAD": DEFAULT_UPLOAD,
     "DOWNLOAD_DIR": DOWNLOAD_DIR,
-    "DUMP_CHAT_ID": DUMP_CHAT_ID,
     "EQUAL_SPLITS": EQUAL_SPLITS,
     "EXTENSION_FILTER": EXTENSION_FILTER,
     "GDRIVE_ID": GDRIVE_ID,
@@ -456,7 +629,6 @@ config_dict = {
     "WEB_PINCODE": WEB_PINCODE,
     "YT_DLP_OPTIONS": YT_DLP_OPTIONS,
     "USER_MAX_TASKS": USER_MAX_TASKS,
-    "LOG_CHAT_ID": LOG_CHAT_ID,
     "FSUB_IDS": FSUB_IDS,
     "STORAGE_THRESHOLD": STORAGE_THRESHOLD,
     "TORRENT_LIMIT": TORRENT_LIMIT,
@@ -466,6 +638,13 @@ config_dict = {
     "CLONE_LIMIT": CLONE_LIMIT,
     "MEGA_LIMIT": MEGA_LIMIT,
     "LEECH_LIMIT": LEECH_LIMIT,
+    'PLAYLIST_LIMIT': PLAYLIST_LIMIT,
+    'DAILY_TASK_LIMIT': DAILY_TASK_LIMIT,
+    'DAILY_MIRROR_LIMIT': DAILY_MIRROR_LIMIT,
+    'DAILY_LEECH_LIMIT': DAILY_LEECH_LIMIT,
+    'MIRROR_LOG_ID': MIRROR_LOG_ID,
+    'LEECH_LOG_ID': LEECH_LOG_ID,
+    'LINKS_LOG_ID': LINKS_LOG_ID,
     "ENABLE_MESSAGE_FILTER": ENABLE_MESSAGE_FILTER,
     "STOP_DUPLICATE_TASKS": STOP_DUPLICATE_TASKS,
     "DISABLE_DRIVE_LINK": DISABLE_DRIVE_LINK,
@@ -474,6 +653,16 @@ config_dict = {
     "REQUEST_LIMITS": REQUEST_LIMITS,
     "DM_MODE": DM_MODE,
     "DELETE_LINKS": DELETE_LINKS,
+    'BOT_THEME': BOT_THEME,
+    'IMAGES': IMAGES,
+    'IMG_SEARCH': IMG_SEARCH,
+    'IMG_PAGE': IMG_PAGE,
+    'IMDB_TEMPLATE': IMDB_TEMPLATE,
+    'AUTHOR_NAME': AUTHOR_NAME,
+    'AUTHOR_URL': AUTHOR_URL,
+    'TITLE_NAME': TITLE_NAME,
+    'TIMEZONE': TIMEZONE,
+    'GD_INFO': GD_INFO,
     "TOKEN_TIMEOUT": TOKEN_TIMEOUT
 }
 

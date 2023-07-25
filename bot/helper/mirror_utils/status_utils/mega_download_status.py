@@ -1,6 +1,6 @@
 from mega import MegaApi
 
-from bot.helper.ext_utils.bot_utils import (MirrorStatus,
+from bot.helper.ext_utils.bot_utils import ( EngineStatus, MirrorStatus,
                                             get_readable_file_size,
                                             get_readable_time)
 
@@ -55,3 +55,6 @@ class MegaDownloadStatus:
 
     def download(self):
         return self.__obj
+
+    def eng(self):
+        return EngineStatus.STATUS_MEGA

@@ -15,7 +15,7 @@ from bot.helper.telegram_helper.button_build import ButtonMaker
 from bot.helper.ext_utils.exceptions import TgLinkException
 
 
-async def sendMessage(message, text, buttons=None):
+async def sendMessage(message, text, buttons=None, photo=None):
     try:
          if photo:
             try:
@@ -33,7 +33,6 @@ async def sendMessage(message, text, buttons=None):
             except Exception as e:
                 LOGGER.error(format_exc())
         return await message.reply(text=text, quote=True, disable_web_page_preview=True, disable_notification=True, reply_markup=buttons)
-
     except FloodWait as f:
         LOGGER.warning(str(f))
         await sleep(f.value * 1.2)
@@ -43,6 +42,8 @@ async def sendMessage(message, text, buttons=None):
     except Exception as e:
         LOGGER.error(format_exc())
         return str(e)
+
+
 async def sendCustomMsg(chat_id, text, buttons=None, photo=None):
     try:
         if photo:

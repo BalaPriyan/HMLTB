@@ -494,3 +494,15 @@ async def request_limiter(message=None, query=None):
             await query.answer("Oops, Spam detected! I will mute you for 69 seconds.", show_alert=True)
         else:
             await sendMessage(message, "Oops, Spam detected! I will mute you for 69 seconds.")
+
+async def BotPm_check(message, button=None):
+    try:
+        temp_msg = await message._client.send_message(chat_id=message.from_user.id, text='<b>Checking Access...</b>')
+        await temp_msg.delete()
+        return None, button
+    except Exception as e:
+        if button is None:
+            button = ButtonMaker()
+        _msg = "<i>You didn't START the bot in PM (Private)</i>"
+        button.ubutton("Start Bot Now", f"https://t.me/{bot_name}?start=start", 'header')
+        return _msg, button

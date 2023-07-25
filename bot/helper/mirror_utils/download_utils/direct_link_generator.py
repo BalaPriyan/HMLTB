@@ -20,8 +20,11 @@ from bs4 import BeautifulSoup
 from cloudscraper import create_scraper
 from lk21 import Bypass
 from lxml import etree
+from requests import session
+import requests
+from base64 import b64decode
 
-from bot import config_dict
+from bot import LOGGER, config_dict
 from bot.helper.ext_utils.bot_utils import get_readable_time, is_share_link
 from bot.helper.ext_utils.exceptions import DirectDownloadLinkException
 from bot.helper.telegram_helper.message_utils import deleteMessage

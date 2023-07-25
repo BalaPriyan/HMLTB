@@ -101,10 +101,10 @@ class MirrorLeechListener:
             pass
 
     def __setModeEng(self):
-       mode = f" #{'Leech'if self.isLeech else 'Clone' if self.isClone else 'RClone' if self.upPath not in ['gd', 'ddl'] else 'DDL' if self.upPath != 'gd' else 'GDrive'}"
-       mode += ' (Zip)' if self.compress else ' (Unzip)' if self.extract else ''
-       mode += f" | #{'qBit' if self.isQbit else 'ytdlp' if self.isYtdlp else 'GDrive' if (self.isClone or self.isGdrive) else 'Mega' if self.isMega else 'Aria2' if self.source_url and self.source_url != self.message.link else 'Tg'}"
-       self.extra_details['mode'] = mode
+        mode = f" #{'Leech'if self.isLeech else 'Clone' if self.isClone else 'RClone' if self.upPath not in ['gd', 'ddl'] else 'DDL' if self.upPath != 'gd' else 'GDrive'}"
+        mode += ' (Zip)' if self.compress else ' (Unzip)' if self.extract else ''
+        mode += f" | #{'qBit' if self.isQbit else 'ytdlp' if self.isYtdlp else 'GDrive' if (self.isClone or self.isGdrive) else 'Mega' if self.isMega else 'Aria2' if self.source_url and self.source_url != self.message.link else 'Tg'}"
+        self.extra_details['mode'] = mode
 
     def __parseSource(self):
         if self.source_url == self.message.link:

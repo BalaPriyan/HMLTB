@@ -1,6 +1,6 @@
 from time import time
 from bot import DOWNLOAD_DIR, LOGGER
-from bot.helper.ext_utils.bot_utils import (get_readable_file_size, MirrorStatus,
+from bot.helper.ext_utils.bot_utils import (get_readable_file_size, MirrorStatus, EngineStatus,
                                             get_readable_time, async_to_sync)
 from bot.helper.ext_utils.fs_utils import get_path_size
 from subprocess import run as frun
@@ -73,3 +73,6 @@ class SplitStatus:
         else:
             self.__listener.suproc = 'cancelled'
         await self.__listener.onUploadError('splitting stopped by user!')
+
+    def eng(self):
+        return EngineStatus.STATUS_SPLIT_MERGE

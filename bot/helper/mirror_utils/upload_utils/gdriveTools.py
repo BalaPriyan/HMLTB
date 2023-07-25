@@ -23,6 +23,8 @@ from bot.helper.ext_utils.bot_utils import (async_to_sync,
                                             get_readable_file_size,
                                             setInterval)
 from bot.helper.ext_utils.fs_utils import get_mime_type
+from bot.helper.ext_utils.leech_utils import format_filename
+
 
 LOGGER = getLogger(__name__)
 getLogger('googleapiclient.discovery').setLevel(ERROR)
@@ -58,7 +60,10 @@ class GoogleDriveHelper:
         self.__service = self.__authorize()
         self.__file_processed_bytes = 0
         self.name = name
+        self.__user_id = listener.message.from_user.id if listener else None
 
+
+  
     @property
     def speed(self):
         try:
@@ -195,6 +200,28 @@ class GoogleDriveHelper:
             LOGGER.error(f"Delete Result: {err}")
             msg = str(err)
         return msg
+      
+    def driveclean(self, drive_id):
+        msg = ''
+        query = f"'{drive_id}' in parents and trashed = false"
+        page_token = None
+        while True:
+            try:
+                drive_query = self.__service.files().list(q=query, spaces='drive', fields='nextPageToken, files(id, name, size)', pageToken=page_token, includeItemsFromAllDrives=True, supportsAllDrives=True).execute()
+                files = drive_query.get('files', [])
+                for file in files:
+                    self.__total_files += 1
+                    self.__total_bytes += int(file.get('size', 0))
+                    self.__service.files().delete(fileId=file['id'], supportsAllDrives=True).execute()
+                page_token = drive_query.get('nextPageToken', None)
+                if page_token is None:
+                    msg = f"⌬ <b><i>Successfully Cleaned Folder/Drive :</i></b> \n\n<b>Total Files:</b> <code>{self.__total_files}</code>\n<b>Total Size:</b> <code>{get_readable_file_size(self.__total_bytes)}</code>"
+                    break
+            except Exception as err:
+                msg = str(err).replace('>', '').replace('<', '')
+                LOGGER.error(err)
+                break
+        return msg
 
     def upload(self, file_name, size, gdrive_id):
         if not gdrive_id:
@@ -276,6 +303,7 @@ class GoogleDriveHelper:
     @retry(wait=wait_exponential(multiplier=2, min=3, max=6), stop=stop_after_attempt(3),
            retry=retry_if_exception_type(Exception))
     def __create_directory(self, directory_name, dest_id):
+        directory_name, _ = async_to_sync(format_filename, directory_name, self.__user_id, isMirror=True)
         file_metadata = {
             "name": directory_name,
             "description": f'Uploaded by {self.__listener.message.from_user.id}',
@@ -295,10 +323,11 @@ class GoogleDriveHelper:
     @retry(wait=wait_exponential(multiplier=2, min=3, max=6), stop=stop_after_attempt(3),
            retry=(retry_if_exception_type(Exception)))
     def __upload_file(self, file_path, file_name, mime_type, dest_id, is_dir=True):
+        file_name, _ = async_to_sync(format_filename, file_name, self.__user_id, isMirror=True)
         # File body description
         file_metadata = {
             'name': file_name,
-            'description': f'Uploaded by {self.__listener.message.from_user.id}',
+            'description': config_dict['GD_INFO'],
             'mimeType': mime_type,
         }
         if dest_id is not None:
@@ -457,8 +486,10 @@ class GoogleDriveHelper:
 
     @retry(wait=wait_exponential(multiplier=2, min=3, max=6), stop=stop_after_attempt(3),
            retry=retry_if_exception_type(Exception))
-    def __copyFile(self, file_id, dest_id):
-        body = {'parents': [dest_id]}
+    def __copyFile(self, file_id, dest_id, file_name):
+        file_name, _ = async_to_sync(format_filename, file_name, self.__user_id, isMirror=True)
+        body = {'name': file_name,
+                'parents': [dest_id]}
         try:
             return self.__service.files().copy(fileId=file_id, body=body, supportsAllDrives=True).execute()
         except HttpError as err:

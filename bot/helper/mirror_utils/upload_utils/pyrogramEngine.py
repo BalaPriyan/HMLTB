@@ -245,7 +245,7 @@ class TgUploader:
         self.__sent_msg = msgs_list[-1]
         if self.__sent_DMmsg:
             await sleep(0.5)
-       try:
+        try:
             if self.__dm_mode and (self.__leechmsg or self.__listener.isSuperGroup):
                      destination = 'DM_MODE'
                      await bot.copy_media_group(chat_id=self.__user_id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)

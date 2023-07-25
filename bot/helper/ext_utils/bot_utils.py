@@ -1,5 +1,4 @@
-from asyncio import (create_subprocess_exec, create_subprocess_shell,
-                     run_coroutine_threadsafe, sleep)
+from asyncio import (create_subprocess_exec, create_subprocess_shell, run_coroutine_threadsafe, sleep)
 from asyncio.subprocess import PIPE
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial, wraps
@@ -7,12 +6,25 @@ from html import escape
 from re import match
 from time import time
 from uuid import uuid4
-from psutil import disk_usage
+from psutil import virtual_memory, cpu_percent, disk_usage
 from pyrogram.types import BotCommand
+from requests import get as rget
+from mega import MegaApi
+from pyrogram.enums import ChatType
+from pyrogram.errors import PeerIdInvalid
 from aiohttp import ClientSession
+from base64 import b64encode
+from datetime import datetime
+from os import path as ospath
+from pkg_resources import get_distribution
+from pkg_resources import get_distribution
+from aiofiles import open as aiopen
+from aiofiles.os import remove as aioremove, path as aiopath, mkdir
+from subprocess import run as srun
 
-from bot import (bot_loop, bot_name, botStartTime, config_dict, download_dict,
-                 download_dict_lock, extra_buttons, user_data)
+from bot.helper.ext_utils.db_handler import DbManger
+from bot.helper.themes import BotTheme
+from bot import ( OWNER_ID, bot_loop, bot_name, botStartTime, config_dict, download_dict, download_dict_lock, extra_buttons, user_data, DATABASE_URL, LOGGER, get_client, aria2, user)
 from bot.helper.ext_utils.shortener import short_url
 from bot.helper.ext_utils.telegraph_helper import telegraph
 from bot.helper.telegram_helper.bot_commands import BotCommands
@@ -85,6 +97,10 @@ async def getAllDownload(req_status, user_id=None):
     return dls
 
 
+async def get_user_tasks(user_id, maxtask):
+    if tasks := await getAllDownload('all', user_id):
+        return len(tasks) >= maxtask
+
 def bt_selection_buttons(id_, isCanCncl=True):
     gid = id_[:12] if len(id_) > 20 else id_
     pincode = ''.join([n for n in id_ if n.isdigit()][:4])
@@ -111,15 +127,63 @@ async def get_telegraph_list(telegraph_content):
     buttons = extra_btns(buttons)
     return buttons.build_menu(1)
 
+def handleIndex(index, dic):
+    while True:
+        if abs(index) >= len(dic):
+            if index < 0: index = len(dic) - abs(index)
+            elif index > 0: index = index - len(dic)
+        else: break
+    return index
 
 def get_progress_bar_string(pct):
-    if isinstance(pct, str):
-        pct = float(pct.strip('%'))
+    pct = float(str(pct).strip('%'))
     p = min(max(pct, 0), 100)
-    cFull = int(p // 10)
-    p_str = '▓' * cFull
-    p_str += '░' * (10 - cFull)
-    return f"{p_str}"
+    cFull = int(p // 8)
+    cPart = int(p % 8 - 1)
+    p_str = '■' * cFull
+    if cPart >= 0:
+        p_str += ['▤', '▥', '▦', '▧', '▨', '▩', '■'][cPart]
+    p_str += '□' * (12 - cFull)
+    return f"[{p_str}]"
+
+def get_p7zip_version():
+    try:
+        result = srun(['7z', '-version'], capture_output=True, text=True)
+        return result.stdout.split('\n')[2].split(' ')[2]
+    except FileNotFoundError:
+        return ''
+
+
+def get_ffmpeg_version():
+    try:
+        result = srun(['ffmpeg', '-version'], capture_output=True, text=True)
+        return result.stdout.split('\n')[0].split(' ')[2].split('ubuntu')[0]
+    except FileNotFoundError:
+        return ''
+
+
+def get_rclone_version():
+    try:
+        result = srun(['rclone', 'version'], capture_output=True, text=True)
+        return result.stdout.split('\n')[0].split(' ')[1]
+    except FileNotFoundError:
+        return ''
+
+
+class EngineStatus:
+    STATUS_ARIA = f"Aria2 v{aria2.client.get_version()['version']}"
+    STATUS_GD = f"Google-API v{get_distribution('google-api-python-client').version}"
+    STATUS_MEGA = f"MegaSDK v{MegaApi('test').getVersion()}"
+    STATUS_QB = f"qBit {get_client().app.version}"
+    STATUS_TG = f"Pyrogram v{get_distribution('pyrogram').version}"
+    STATUS_YT = f"yt-dlp v{get_distribution('yt-dlp').version}"
+    STATUS_EXT = "pExtract v2"
+    STATUS_SPLIT_MERGE = f"ffmpeg v{get_ffmpeg_version()}"
+    STATUS_ZIP = f"p7zip v{get_p7zip_version()}"
+    STATUS_QUEUE = "Sleep v0"
+    STATUS_RCLONE = f"RClone {get_rclone_version()}"
+
+
 
 
 def get_readable_message():
@@ -134,59 +198,50 @@ def get_readable_message():
         globals()['PAGE_NO'] = PAGES
 
     for download in list(download_dict.values())[STATUS_START:STATUS_LIMIT+STATUS_START]:
-
-        tag = download.message.from_user.mention
-        if reply_to := download.message.reply_to_message:
-            tag = reply_to.from_user.mention
-
-        elapsed = time() - download.extra_details['startTime']
-
-        msg += f"\n<b>File Name</b> » <i>{escape(f'{download.name()}')}</i>\n\n" if elapsed <= config_dict['AUTO_DELETE_MESSAGE_DURATION'] else ""
-        msg += f"• <b>{download.status()}</b>"
-
-        if download.status() not in [MirrorStatus.STATUS_SEEDING, MirrorStatus.STATUS_PAUSED,
-                                     MirrorStatus.STATUS_QUEUEDL, MirrorStatus.STATUS_QUEUEUP]:
-
-            msg += f" » {download.speed()}"
-            msg += f"\n• {get_progress_bar_string(download.progress())} » {download.progress()}"
-            msg += f"\n• <code>Done     </code>» {download.processed_bytes()} of {download.size()}"
-            msg += f"\n• <code>ETA      </code>» {download.eta()}"
-            msg += f"\n• <code>Active   </code>» {get_readable_time(elapsed)}"
-            msg += f"\n• <code>Engine   </code>» {download.engine}"
-
-            if hasattr(download, 'playList'):
-                try:
-                    if playlist:=download.playList():
-                        msg += f"\n• <code>YT Count </code>» {playlist}"
-                except:
-                    pass
-
+        msg_link = download.message.link if download.message.chat.type in [
+            ChatType.SUPERGROUP, ChatType.CHANNEL] and not config_dict['DELETE_LINKS'] else ''
+        msg += BotTheme('STATUS_NAME', Name="Task is being Processed!" if config_dict['SAFE_MODE'] else escape(f'{download.name()}'))
+        if download.status() not in [MirrorStatus.STATUS_SPLITTING, MirrorStatus.STATUS_SEEDING]:
+            if download.status() != MirrorStatus.STATUS_UPLOADDDL:
+                msg += BotTheme('BAR', Bar=f"{get_progress_bar_string(download.progress())} {download.progress()}")
+                msg += BotTheme('PROCESSED', Processed=f"{download.processed_bytes()} of {download.size()}")
+            msg += BotTheme('STATUS', Status=download.status(), Url=msg_link)
+            if download.status() != MirrorStatus.STATUS_UPLOADDDL:
+                msg += BotTheme('ETA', Eta=download.eta())
+                msg += BotTheme('SPEED', Speed=download.speed())
+            msg += BotTheme('ELAPSED', Elapsed=get_readable_time(time() - download.message.date.timestamp()))
+            msg += BotTheme('ENGINE', Engine=download.eng())
+            msg += BotTheme('STA_MODE', Mode=download.upload_details['mode'])
             if hasattr(download, 'seeders_num'):
                 try:
-                    msg += f"\n• <code>Seeders  </code>» {download.seeders_num()}"
-                    msg += f"\n• <code>Leechers </code>» {download.leechers_num()}"
+                    msg += BotTheme('SEEDERS', Seeders=download.seeders_num())
+                    msg += BotTheme('LEECHERS', Leechers=download.leechers_num())
                 except:
                     pass
-
         elif download.status() == MirrorStatus.STATUS_SEEDING:
-            msg += f"\n• <code>Size     </code>» {download.size()}"
-            msg += f"\n• <code>Speed    </code>» {download.upload_speed()}"
-            msg += f"\n• <code>Uploaded </code>» {download.uploaded_bytes()}"
-            msg += f"\n• <code>Ratio    </code>» {download.ratio()}"
-            msg += f"\n• <code>Time     </code>» {download.seeding_time()}"
+            msg += BotTheme('STATUS', Status=download.status(), Url=msg_link)
+            msg += BotTheme('SEED_SIZE', Size=download.size())
+            msg += BotTheme('SEED_SPEED', Speed=download.upload_speed())
+            msg += BotTheme('UPLOADED', Upload=download.uploaded_bytes())
+            msg += BotTheme('RATIO', Ratio=download.ratio())
+            msg += BotTheme('TIME', Time=download.seeding_time())
+            msg += BotTheme('SEED_ENGINE', Engine=download.eng())
         else:
-            msg += f"\n• <code>Size     </code>» {download.size()}"
+            msg += BotTheme('STATUS', Status=download.status(), Url=msg_link)
+            msg += BotTheme('STATUS_SIZE', Size=download.size())
+            msg += BotTheme('NON_ENGINE', Engine=download.eng())
 
-        if config_dict['DELETE_LINKS']:
-            msg += f"\n• <code>Task     </code>» {download.extra_details['mode']}"
-        else:
-            msg += f"\n• <code>Task     </code>» <a href='{download.message.link}'>{download.extra_details['mode']}</a>"
-
-        msg += f"\n• <code>User     </code>» {tag}"
-        msg += f"\n⚠️ /{BotCommands.CancelMirror}_{download.gid()}\n\n"
+        msg += BotTheme('USER',
+                        User=download.message.from_user.mention(style="html"))
+        msg += BotTheme('ID', Id=download.message.from_user.id)
+        if (download.eng()).startswith("qBit"):
+            msg += BotTheme('BTSEL', Btsel=f"/{BotCommands.BtSelectCommand}_{download.gid()}")
+        msg += BotTheme('CANCEL', Cancel=f"/{BotCommands.CancelMirror}_{download.gid()}")
 
     if len(msg) == 0:
         return None, None
+
+    dl_speed = 0
 
     def convert_speed_to_bytes_per_second(spd):
         if 'K' in spd:
@@ -207,21 +262,25 @@ def get_readable_message():
         elif tstatus == MirrorStatus.STATUS_UPLOADING or tstatus == MirrorStatus.STATUS_SEEDING:
             up_speed += speed_in_bytes_per_second
 
+    msg += BotTheme('FOOTER')
+    buttons = ButtonMaker()
+    buttons.ibutton(BotTheme('REFRESH', Page=f"{PAGE_NO}/{PAGES}"), "status ref")
     if tasks > STATUS_LIMIT:
+        if config_dict['BOT_MAX_TASKS']:
+            msg += BotTheme('BOT_TASKS', Tasks=tasks, Ttask=config_dict['BOT_MAX_TASKS'], Free=config_dict['BOT_MAX_TASKS']-tasks)
+        else:
+            msg += BotTheme('TASKS', Tasks=tasks)
         buttons = ButtonMaker()
-        buttons.ibutton("⫷", "status pre")
-        buttons.ibutton(f"{PAGE_NO}/{PAGES}", "status ref")
-        buttons.ibutton("⫸", "status nex")
-        button = buttons.build_menu(3)
-    msg += "____________________________"
-    msg += f"\n<b>DISK</b>: <code>{get_readable_file_size(disk_usage(config_dict['DOWNLOAD_DIR']).free)}</code>"
-    msg += f" | <b>UPTM</b>: <code>{get_readable_time(time() - botStartTime)}</code>"
-    msg += f"\n<b>DL</b>: <code>{get_readable_file_size(dl_speed)}/s</code>"
-    msg += f" | <b>UL</b>: <code>{get_readable_file_size(up_speed)}/s</code>"
-    remaining_time = 86400 - (time() - botStartTime)
-    res_time = '⚠️ ANYTIME ⚠️' if remaining_time <= 0 else get_readable_time(remaining_time)
-    if remaining_time <= 3600:
-        msg += f"\n<b>Bot Restarts In:</b> <code>{res_time}</code>"
+        buttons.ibutton(BotTheme('PREVIOUS'), "status pre")
+        buttons.ibutton(BotTheme('REFRESH', Page=f"{PAGE_NO}/{PAGES}"), "status ref")
+        buttons.ibutton(BotTheme('NEXT'), "status nex")
+    button = buttons.build_menu(3)
+    msg += BotTheme('Cpu', cpu=cpu_percent())
+    msg += BotTheme('FREE', free=get_readable_file_size(disk_usage(config_dict['DOWNLOAD_DIR']).free), free_p=round(100-disk_usage(config_dict['DOWNLOAD_DIR']).percent, 1))
+    msg += BotTheme('Ram', ram=virtual_memory().percent)
+    msg += BotTheme('uptime', uptime=get_readable_time(time() - botStartTime))
+    msg += BotTheme('DL', DL=get_readable_file_size(dl_speed))
+    msg += BotTheme('UL', UL=get_readable_file_size(up_speed))
     return msg, button
 
 
@@ -349,6 +408,24 @@ def update_user_ldata(id_, key, value):
     user_data[id_][key] = value
 
 
+async def download_image_url(url):
+    path = "Images/"
+    if not await aiopath.isdir(path):
+        await mkdir(path)
+    image_name = url.split('/')[-1]
+    des_dir = ospath.join(path, image_name)
+    async with aioClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                async with aiopen(des_dir, 'wb') as file:
+                    async for chunk in response.content.iter_chunked(1024):
+                        await file.write(chunk)
+                LOGGER.info(f"Image Downloaded Successfully as {image_name}")
+            else:
+                LOGGER.error(f"Failed to Download Image from {url}")
+    return des_dir
+  
+
 def extra_btns(buttons):
     if extra_buttons:
         for btn_name, btn_url in extra_buttons.items():
@@ -371,6 +448,8 @@ def checking_access(user_id, button=None):
     user_data.setdefault(user_id, {})
     data = user_data[user_id]
     expire = data.get('time')
+    if config_dict['LOGIN_PASS'] is not None and data.get('token', '') == config_dict['LOGIN_PASS']:
+        return None, button
     isExpired = (expire is None or expire is not None and (
         time() - expire) > config_dict['TOKEN_TIMEOUT'])
     if isExpired:
@@ -382,6 +461,7 @@ def checking_access(user_id, button=None):
         user_data[user_id].update(data)
         if button is None:
             button = ButtonMaker()
+        encrypt_url = b64encode(f"{token}&&{user_id}".encode()).decode()
         button.ubutton('Get New Token', short_url(f'https://telegram.me/{bot_name}?start={token}'))
         return 'Your <b>Token</b> is expired. Get a new one.', button
     return None, button
@@ -423,6 +503,44 @@ def new_thread(func):
         return future.result() if wait else future
     return wrapper
 
+async def getdailytasks(user_id, increase_task=False, upleech=0, upmirror=0, check_mirror=False, check_leech=False):
+    task, lsize, msize = 0, 0, 0
+    if user_id in user_data and user_data[user_id].get('dly_tasks'):
+        userdate, task, lsize, msize = user_data[user_id]['dly_tasks']
+        nowdate = datetime.today()
+        if userdate.year <= nowdate.year and userdate.month <= nowdate.month and userdate.day < nowdate.day:
+            task, lsize, msize = 0, 0, 0
+            if increase_task:
+                task = 1
+            elif upleech != 0:
+                lsize += upleech
+            elif upmirror != 0:
+                msize += upmirror
+        else:
+            if increase_task:
+                task += 1
+            elif upleech != 0:
+                lsize += upleech
+            elif upmirror != 0:
+                msize += upmirror
+    else:
+        if increase_task:
+            task += 1
+        elif upleech != 0:
+            lsize += upleech
+        elif upmirror != 0:
+            msize += upmirror
+    update_user_ldata(user_id, 'dly_tasks', [
+                      datetime.today(), task, lsize, msize])
+    if DATABASE_URL:
+        await DbManger().update_user_data(user_id)
+    if check_leech:
+        return lsize
+    elif check_mirror:
+        return msize
+    return task
+
+
 
 async def set_commands(client):
     if config_dict['SET_COMMANDS']:
@@ -443,6 +561,28 @@ async def set_commands(client):
             BotCommand(f'{BotCommands.CancelAllCommand[0]}', f'Cancel all tasks which added by you or {BotCommands.CancelAllCommand[1]} to in bots.'),
             BotCommand(f'{BotCommands.ListCommand}', 'Search in Drive'),
             BotCommand(f'{BotCommands.SearchCommand}', 'Search in Torrent'),
-            BotCommand(f'{BotCommands.UserSetCommand}', 'Users settings'),
-            BotCommand(f'{BotCommands.HelpCommand}', 'Get detailed help'),
-        ])
+            BotCommand(BotCommands.HelpCommand, 'Get detailed help about the WZML-X Bot'),
+            BotCommand(BotCommands.UserSetCommand[0], f"or /{BotCommands.UserSetCommand[1]} User's Personal Settings (Open in PM)"),
+            BotCommand(BotCommands.IMDBCommand, 'Search Movies/Series on IMDB.com and fetch details'),
+            BotCommand(BotCommands.AniListCommand, 'Search Animes on AniList.com and fetch details'),
+            BotCommand(BotCommands.MyDramaListCommand, 'Search Dramas on MyDramaList.com and fetch details'),
+            BotCommand(BotCommands.SpeedCommand[0], f'or /{BotCommands.SpeedCommand[1]} Check Server Up & Down Speed & Details'),
+            BotCommand(BotCommands.MediaInfoCommand[0], f'or /{BotCommands.MediaInfoCommand[1]} Generate Mediainfo for Replied Media or DL links'),
+            BotCommand(BotCommands.BotSetCommand[0], f"or /{BotCommands.BotSetCommand[1]} Bot's Personal Settings (Owner or Sudo Only)"),
+            BotCommand(BotCommands.RestartCommand[0], f'or /{BotCommands.RestartCommand[1]} Restart & Update the Bot (Owner or Sudo Only)'),
+            ]
+            if config_dict['SHOW_EXTRA_CMDS']:
+                bot_cmds.insert(1, BotCommand(BotCommands.MirrorCommand[2], f'or /{BotCommands.MirrorCommand[3]} Mirror and UnZip [links/media/rclone_path]'))
+                bot_cmds.insert(1, BotCommand(BotCommands.MirrorCommand[4], f'or /{BotCommands.MirrorCommand[5]} Mirror and Zip [links/media/rclone_path]'))
+                bot_cmds.insert(4, BotCommand(BotCommands.LeechCommand[2], f'or /{BotCommands.LeechCommand[3]} Leech and UnZip [links/media/rclone_path]'))
+                bot_cmds.insert(4, BotCommand(BotCommands.LeechCommand[4], f'or /{BotCommands.LeechCommand[5]} Leech and Zip [links/media/rclone_path]'))
+                bot_cmds.insert(7, BotCommand(BotCommands.QbMirrorCommand[2], f'or /{BotCommands.QbMirrorCommand[3]} Mirror magnet/torrent and UnZip using qBit'))
+                bot_cmds.insert(7, BotCommand(BotCommands.QbMirrorCommand[4], f'or /{BotCommands.QbMirrorCommand[5]} Mirror magnet/torrent and Zip using qBit'))
+                bot_cmds.insert(10, BotCommand(BotCommands.QbLeechCommand[2], f'or /{BotCommands.QbLeechCommand[3]} Leech magnet/torrent and UnZip using qBit'))
+                bot_cmds.insert(10, BotCommand(BotCommands.QbLeechCommand[4], f'or /{BotCommands.QbLeechCommand[5]} Leech magnet/torrent and Zip using qBit'))
+                bot_cmds.insert(13, BotCommand(BotCommands.YtdlCommand[2], f'or /{BotCommands.YtdlCommand[3]} Mirror yt-dlp supported links and Zip via bot'))
+                bot_cmds.insert(13, BotCommand(BotCommands.YtdlLeechCommand[2], f'or /{BotCommands.YtdlLeechCommand[3]} Leech yt-dlp supported links and Zip via bot'))
+            await client.set_bot_commands(bot_cmds)
+            LOGGER.info('Bot Commands have been Set & Updated')
+        except Exception as err:
+            LOGGER.error(err)

@@ -1,3 +1,5 @@
+from traceback import format_exc
+
 from asyncio import sleep
 from html import escape
 from logging import ERROR, getLogger
@@ -9,15 +11,18 @@ from aiofiles.os import makedirs, path as aiopath, remove as aioremove, rename a
 from aioshutil import copy
 from natsort import natsorted
 from PIL import Image
-from pyrogram.errors import FloodWait, RPCError
-from pyrogram.types import InputMediaDocument, InputMediaVideo
+from pyrogram.errors import FloodWait, RPCError, PeerIdInvalid, MessageNotModified, ChannelInvalid
+from pyrogram.types import InputMediaDocument, InputMediaVideo, InlineKeyboardMarkup
 from tenacity import (RetryError, retry, retry_if_exception_type,
                       stop_after_attempt, wait_exponential)
 
 from bot import GLOBAL_EXTENSION_FILTER, IS_PREMIUM_USER, bot, config_dict, user, user_data
+from bot.helper.themes import BotTheme
 from bot.helper.ext_utils.bot_utils import get_readable_file_size, sync_to_async
 from bot.helper.ext_utils.fs_utils import clean_unwanted, get_base_name, is_archive
-from bot.helper.ext_utils.leech_utils import get_document_type, get_media_info, take_ss, remove_unwanted
+from bot.helper.ext_utils.leech_utils import get_document_type, get_media_info, take_ss, remove_unwanted, get_mediainfo_link, format_filename
+from bot.helper.telegram_helper.message_utils import sendCustomMsg, sendMultiMessage, chat_info
+from bot.helper.telegram_helper.button_build import ButtonMaker
 
 LOGGER = getLogger(__name__)
 getLogger("pyrogram").setLevel(ERROR)
@@ -35,20 +40,86 @@ class TgUploader:
         self.__total_files = 0
         self.__is_cancelled = False
         self.__thumb = f"Thumbnails/{listener.message.from_user.id}.jpg"
+        self.__sent_msg = None
+        self.__has_buttons = False
         self.__msgs_dict = {}
         self.__corrupted = 0
         self.__is_corrupted = False
         self.__media_dict = {'videos': {}, 'documents': {}}
         self.__last_msg_in_group = False
+        self.__prm_media = False
+        self.__client = bot
         self.__up_path = ''
-        self.__lprefix = ''
-        self.__lremname = ''
+        self.__ldump = ''
+        self.__mediainfo = False
         self.__as_doc = False
         self.__media_group = False
         self.__sent_DMmsg = None
         self.__button = None
         self.__upload_dest = None
+        self.__user_id = listener.message.from_user.id
+        self.__leechmsg = {}
 
+
+   async def __buttons(self, up_path):
+        buttons = ButtonMaker()
+        try:
+            if self.__mediainfo:
+                buttons.ubutton(BotTheme('MEDIAINFO_LINK'), await get_mediainfo_link(up_path))
+        except Exception as e:
+            LOGGER.error("MediaInfo Error: "+str(e))
+        if config_dict['SAVE_MSG'] and (config_dict['LEECH_LOG_ID'] or not self.__listener.isPrivate):
+            buttons.ibutton(BotTheme('SAVE_MSG'), 'save', 'footer')
+        if self.__has_buttons:
+            return buttons.build_menu(1)
+        return None
+
+    async def __copy_file(self):
+        try:
+            if self.__bot_pm and (self.__leechmsg or self.__listener.isSuperGroup):
+                destination = 'Bot PM'
+                copied = await bot.copy_message(chat_id=self.__user_id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id, reply_to_message_id=self.__listener.botpmmsg.id) 
+                if self.__has_buttons:
+                    rply = (InlineKeyboardMarkup(BTN) if (BTN := self.__sent_msg.reply_markup.inline_keyboard[:-1]) else None) if config_dict['SAVE_MSG'] else self.__sent_msg.reply_markup
+                    try:
+                        await copied.edit_reply_markup(rply)
+                    except MessageNotModified:
+                        pass
+
+            if len(self.__leechmsg) > 1:
+                for chat_id, msg in list(self.__leechmsg.items())[1:]:
+                    destination = f'Leech Log: {chat_id}'
+                    self.__leechmsg[chat_id] = await bot.copy_message(chat_id=chat_id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id, reply_to_message_id=msg.id)
+                    if msg.text and config_dict['CLEAN_LOG_MSG']:
+                        await msg.delete()
+                    if self.__has_buttons:
+                        try:
+                            await self.__leechmsg[chat_id].edit_reply_markup(self.__sent_msg.reply_markup)
+                        except MessageNotModified:
+                            pass
+
+            if self.__ldump:
+                destination = 'User Dump'
+                for channel_id in self.__ldump.split():
+                    chat = await chat_info(channel_id)
+                    try:
+                        dump_copy = await bot.copy_message(chat_id=chat.id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)
+                        if self.__has_buttons:
+                            rply = (InlineKeyboardMarkup(BTN) if (BTN := self.__sent_msg.reply_markup.inline_keyboard[:-1]) else None) if config_dict['SAVE_MSG'] else self.__sent_msg.reply_markup
+                            try:
+                                await dump_copy.edit_reply_markup(rply)
+                            except MessageNotModified:
+                                pass
+                    except (ChannelInvalid, PeerIdInvalid) as e:
+                        LOGGER.error(f"{e.NAME}: {e.MESSAGE} for {channel_id}")
+                        continue
+        except Exception as err:
+            if not self.__is_cancelled:
+                LOGGER.error(f"Failed To Send in {destination}:\n{str(err)}")
+
+
+
+  
     async def __upload_progress(self, current, total):
         if self.__is_cancelled:
             if IS_PREMIUM_USER:
@@ -65,53 +136,32 @@ class TgUploader:
             'as_doc', False) or (config_dict['AS_DOCUMENT'] if 'as_doc' not in user_dict else False)
         self.__media_group = user_dict.get(
             'media_group') or (config_dict['MEDIA_GROUP'] if 'media_group' not in user_dict else False)
-        self.__lprefix = user_dict.get(
-            'lprefix') or (config_dict['LEECH_FILENAME_PREFIX'] if 'lprefix' not in user_dict else '')
-        self.__lremname = user_dict.get(
-            'lremname') or (config_dict['LEECH_REMOVE_UNWANTED'] if 'lremname' not in user_dict else '')
+        self.__bot_pm = config_dict['DM_MODE'] or user_dict.get('bot_pm')
+        self.__mediainfo = config_dict['SHOW_MEDIAINFO'] or user_dict.get('mediainfo')
+        self.__ldump = user_dict.get('ldump', '') or ''
+        self.__has_buttons = bool(config_dict['SAVE_MSG'] or self.__mediainfo)
         if not await aiopath.exists(self.__thumb):
             self.__thumb = None
-        self.__upload_dest = user_dict.get('user_dump') or config_dict['USER_DUMP']
 
     async def __msg_to_reply(self):
-        if DUMP_CHAT_ID := config_dict['DUMP_CHAT_ID']:
-            if self.__listener.logMessage:
-                self.__sent_msg = await self.__listener.logMessage.copy(DUMP_CHAT_ID)
-            else:
-                msg = f'<b>File Name</b>: <code>{escape(self.name)}</code>\n\n<b>#Leech_Completed</b>!\n'
-                msg += f'<b>Done By</b>: {self.__listener.tag}\n'
-                msg += f'<b>User ID</b>: <code>{self.__listener.message.from_user.id}</code>'
-                self.__sent_msg = await bot.send_message(DUMP_CHAT_ID, msg, disable_web_page_preview=True)
-            if self.__listener.dmMessage:
-                self.__sent_DMmsg = self.__listener.dmMessage
-            if IS_PREMIUM_USER:
-                try:
-                    self.__sent_msg = await user.get_messages(chat_id=self.__sent_msg.chat.id, message_ids=self.__sent_msg.id)
-                except RPCError as e:
-                    await self.__listener.onUploadError(f'{e.NAME} [{e.CODE}]: {e.MESSAGE}')
-                except Exception as e:
-                    await self.__listener.onUploadError(e)
+        msg_link = self.__listener.message.link if self.__listener.isSuperGroup else ''
+        msg_user = self.__listener.message.from_user
+        if config_dict['LEECH_LOG_ID']:
+            try:
+                self.__leechmsg = await sendMultiMessage(config_dict['LEECH_LOG_ID'], BotTheme('L_LOG_START', mention=msg_user.mention(style='HTML'), uid=msg_user.id, msg_link=self.__listener.source_url))
+            except Exception as er:
+                await self.__listener.onUploadError(str(er))
+                return False
+            self.__sent_msg = list(self.__leechmsg.values())[0]
         elif IS_PREMIUM_USER:
             if not self.__listener.isSuperGroup:
-                await self.__listener.onUploadError('Use SuperGroup to leech with User!')
+                await self.__listener.onUploadError('Use SuperGroup to leech with User Client! or Set LEECH_LOG_ID to Leech in PM')
                 return False
             self.__sent_msg = self.__listener.message
-            try:
-                self.__sent_msg = await user.get_messages(chat_id=self.__sent_msg.chat.id, message_ids=self.__sent_msg.id)
-            except RPCError as e:
-                await self.__listener.onUploadError(f'{e.NAME} [{e.CODE}]: {e.MESSAGE}')
-            except Exception as e:
-                await self.__listener.onUploadError(e)
-            if self.__listener.dmMessage:
-                self.__sent_DMmsg = self.__listener.dmMessage
-        elif self.__listener.dmMessage:
-            self.__sent_msg = self.__listener.dmMessage
         else:
             self.__sent_msg = self.__listener.message
-        if self.__sent_msg is None:
-            await self.__listener.onUploadError('Cannot find the message to reply')
-            return False
         return True
+
 
     async def __prepare_file(self, file_, dirpath):
         if self.__lprefix or self.__lremname:
@@ -154,7 +204,7 @@ class TgUploader:
                 new_path = ospath.join(dirpath, f"{name}{ext}")
                 await aiorename(self.__up_path, new_path)
                 self.__up_path = new_path
-        return cap_mono
+        return cap_mono, file_
 
     async def __get_input_media(self, subkey, key, msg_list=None):
         rlist = []
@@ -175,6 +225,10 @@ class TgUploader:
             rlist.append(input_media)
         return rlist
 
+    async def __switching_client(self):
+        LOGGER.info(f'Uploading Media {">" if self.__prm_media else "<"} 2GB by {"User" if self.__prm_media else "Bot"} Client')
+        self.__client = user if (self.__prm_media and IS_PREMIUM_USER) else bot
+
     async def __send_media_group(self, subkey, key, msgs):
         grouped_media = await self.__get_input_media(subkey, key)
         msgs_list = await msgs[0].reply_to_message.reply_media_group(media=grouped_media,
@@ -192,14 +246,22 @@ class TgUploader:
         if self.__sent_DMmsg:
             await sleep(0.5)
             try:
-                if IS_PREMIUM_USER:
-                    grouped_media = await self.__get_input_media(subkey, key, msgs_list)
-                dm_msgs_list = await self.__sent_DMmsg.reply_media_group(media=grouped_media, quote=True)
-                self.__sent_DMmsg = dm_msgs_list[-1]
-            except Exception as err:
-                LOGGER.error(
-                    f"Error while sending media group in dm {err.__class__.__name__}")
-                self.__sent_DMmsg = None
+              if self.__dm_mode and (self.__leechmsg or self.__listener.isSuperGroup):
+                destination = 'DM_MODE'
+                await bot.copy_media_group(chat_id=self.__user_id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)
+            if self.__ldump:
+                destination = 'Dump'
+                for channel_id in self.__ldump.split():
+                    dump_chat = await chat_info(channel_id)
+                    try:
+                        await bot.copy_media_group(chat_id=dump_chat.id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)
+                    except (ChannelInvalid, PeerIdInvalid) as e:
+                        LOGGER.error(f"{e.NAME}: {e.MESSAGE} for {channel_id}")
+                        continue
+        except Exception as err:
+            if not self.__is_cancelled:
+                LOGGER.error(f"Failed To Send in {destination}:\n{str(err)}")
+
 
     async def upload(self, o_files, m_size, size):
         res = await self.__msg_to_reply()
@@ -239,9 +301,12 @@ class TgUploader:
                     self.__last_uploaded = 0
                     await self.__switching_client(f_size)
                     await self.__upload_file(cap_mono, file_)
+                    if self.__leechmsg and not isDeleted and config_dict['CLEAN_LOG_MSG']:
+                        await list(self.__leechmsg.values())[0].delete()
+                        isDeleted = True
                     if self.__is_cancelled:
                         return
-                    if not self.__is_corrupted and (self.__listener.isSuperGroup or config_dict['DUMP_CHAT_ID']):
+                    if not self.__is_corrupted and (self.__listener.isSuperGroup or config_dict['LEECH_LOG_ID']):
                         self.__msgs_dict[self.__sent_msg.link] = file_
                     await sleep(1)
                 except Exception as err:
@@ -272,12 +337,6 @@ class TgUploader:
         if self.__total_files <= self.__corrupted:
             await self.__listener.onUploadError('Files Corrupted or unable to upload.')
             return
-        if config_dict['DUMP_CHAT_ID']:
-            msg = f'<b>File Name</b>: <code>{escape(self.name)}</code>\n\n'
-            msg += f'<b>LeechCompleted</b>!\n<b>Done By</b>: {self.__listener.tag}\n'
-            msg += f'<b>User ID</b>: <code>{self.__listener.message.from_user.id}</code>'
-            if self.__sent_msg is not None:
-                await self.__sent_msg.reply(text=msg, quote=True, disable_web_page_preview=True)
         LOGGER.info(f"Leech Completed: {self.name}")
         await self.__listener.onUploadComplete(None, size, self.__msgs_dict, self.__total_files, self.__corrupted, self.name)
 
@@ -342,14 +401,25 @@ class TgUploader:
                     thumb = await take_ss(self.__up_path, None)
                 if self.__is_cancelled:
                     return
-                self.__sent_msg = await self.__sent_msg.reply_document(document=self.__up_path,
+                self.__sent_msg = await self.__sent_msg.reply_document(chat_id=self.__sent_msg.chat.id, reply_to_message_id=self.__sent_msg.id, document=self.__up_path,
                                                                        quote=True,
                                                                        thumb=thumb,
                                                                        caption=cap_mono,
                                                                        force_document=True,
-                                                                       reply_markup=self.__button,
+                                                                       reply_markup=await self.__buttons(self.__up_path),
                                                                        disable_notification=True,
                                                                        progress=self.__upload_progress)
+
+
+                 if self.__prm_media and (self.__has_buttons or not self.__leechmsg):
+                    try:
+                        self.__sent_msg = await bot.copy_message(nrml_media.chat.id, nrml_media.chat.id, nrml_media.id, reply_to_message_id=self.__sent_msg.id, reply_markup=await self.__buttons(self.__up_path))
+                        if self.__sent_msg: await nrml_media.delete()
+                    except:
+                        self.__sent_msg = nrml_media
+                else:
+                    self.__sent_msg = nrml_media
+                  
             elif is_video:
                 key = 'videos'
                 duration = (await get_media_info(self.__up_path))[0]
@@ -375,40 +445,50 @@ class TgUploader:
                         self.__up_path = new_path
                 if self.__is_cancelled:
                     return
-                self.__sent_msg = await self.__sent_msg.reply_video(video=self.__up_path,
-                                                                    quote=True,
+                self.__sent_msg = await self.__sent_msg.reply_video(chat_id=self.__sent_msg.chat.id, video=self.__up_path,
+                                                                    quote=True, reply_to_message_id=self.__sent_msg.id,
                                                                     caption=cap_mono,
                                                                     duration=duration,
                                                                     width=width,
                                                                     height=height,
                                                                     thumb=thumb,
                                                                     supports_streaming=True,
-                                                                    reply_markup=self.__button,
+                                                                    reply_markup=await self.__buttons(self.__up_path),
                                                                     disable_notification=True,
                                                                     progress=self.__upload_progress)
+
+                if self.__prm_media and (self.__has_buttons or not self.__leechmsg):
+                    try:
+                        self.__sent_msg = await bot.copy_message(nrml_media.chat.id, nrml_media.chat.id, nrml_media.id, reply_to_message_id=self.__sent_msg.id, reply_markup=await self.__buttons(self.__up_path))
+                        if self.__sent_msg: await nrml_media.delete()
+                    except:
+                        self.__sent_msg = nrml_media
+                else:
+                    self.__sent_msg = nrml_media
+          
             elif is_audio:
                 key = 'audios'
                 duration, artist, title = await get_media_info(self.__up_path)
                 if self.__is_cancelled:
                     return
-                self.__sent_msg = await self.__sent_msg.reply_audio(audio=self.__up_path,
+                self.__sent_msg = await self.__sent_msg.reply_audio(audio=self.__up_path, chat_id=self.__sent_msg.chat.id, reply_to_message_id=self.__sent_msg.id,
                                                                     quote=True,
                                                                     caption=cap_mono,
                                                                     duration=duration,
                                                                     performer=artist,
                                                                     title=title,
                                                                     thumb=thumb,
-                                                                    reply_markup=self.__button,
+                                                                    reply_markup=await self.__buttons(self.__up_path),
                                                                     disable_notification=True,
                                                                     progress=self.__upload_progress)
             else:
                 key = 'photos'
                 if self.__is_cancelled:
                     return
-                self.__sent_msg = await self.__sent_msg.reply_photo(photo=self.__up_path,
+                self.__sent_msg = await self.__sent_msg.reply_photo(photo=self.__up_path, chat_id=self.__sent_msg.chat.id, reply_to_message_id=self.__sent_msg.id,
                                                                     quote=True,
                                                                     caption=cap_mono,
-                                                                    reply_markup=self.__button,
+                                                                    reply_markup==await self.__buttons(self.__up_path),
                                                                     disable_notification=True,
                                                                     progress=self.__upload_progress)
 
@@ -425,14 +505,8 @@ class TgUploader:
                         await self.__send_media_group(pname, key, msgs)
                     else:
                         self.__last_msg_in_group = True
-                elif self.__sent_DMmsg:
-                    await self.__send_dm()
-                if self.__upload_dest:
-                    await self.__send_to_udump()
-            elif self.__sent_DMmsg:
-                await self.__send_dm()
-            if self.__upload_dest:
-                await self.__send_to_udump()
+            await self.__copy_file()
+                
             if self.__thumb is None and thumb is not None and await aiopath.exists(thumb):
                 await aioremove(thumb)
         except FloodWait as f:

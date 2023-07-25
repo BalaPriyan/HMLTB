@@ -1,7 +1,7 @@
 from asyncio import sleep
 
 from bot import LOGGER, QbTorrents, get_client, qb_listener_lock
-from bot.helper.ext_utils.bot_utils import (MirrorStatus,
+from bot.helper.ext_utils.bot_utils import ( EngineStatus, MirrorStatus,
                                             get_readable_file_size,
                                             get_readable_time, sync_to_async)
 
@@ -121,3 +121,9 @@ class QbittorrentStatus:
             async with qb_listener_lock:
                 if self.__info.tags in QbTorrents:
                     del QbTorrents[self.__info.tags]
+
+
+
+
+    def eng(self):
+        return EngineStatus.STATUS_QB

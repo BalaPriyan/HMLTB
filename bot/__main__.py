@@ -33,7 +33,7 @@ from .helper.themes import BotTheme
 
 
 @new_thread
-async def stats(_, message):
+async def stats(client, message):
     if await aiopath.exists('.git'):
         last_commit = (await cmd_exec("git log -1 --date=short --pretty=format:'%cr'", True))[0]
         version = (await cmd_exec("git describe --abbrev=0 --tags", True))[0]
@@ -95,7 +95,7 @@ async def stats(_, message):
     await auto_delete_message(message, reply_message)
 
 
-async def start(_, message):
+async def start(client, message):
     buttons = ButtonMaker()
     buttons.ubutton(BotTheme('ST_BN1_NAME'), BotTheme('ST_BN1_URL'))
     buttons.ubutton(BotTheme('ST_BN2_NAME'), BotTheme('ST_BN2_URL'))
@@ -159,7 +159,7 @@ async def login(_, message):
         await sendMessage(message, '<b>Bot Login Usage :</b>\n\n<code>/cmd {password}</code>')
 
 
-async def restart(_, message):
+async def restart(client, message):
     restart_message = await sendMessage(message, "Restarting...")
     if scheduler.running:
         scheduler.shutdown(wait=False)
@@ -298,7 +298,7 @@ help_string =  f'''<b><i>㊂ Help Guide :</i></b>
 '''
 
 @new_thread
-async def bot_help(_, message):
+async def bot_help(client, message):
     reply_message = await sendMessage(message, help_string)
     await auto_delete_message(message, reply_message)
 

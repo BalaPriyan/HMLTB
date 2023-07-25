@@ -44,7 +44,7 @@ async def _list_drive(key, message, item_type, isRecursive):
         except Exception as e:
             await editMessage(message, e)
             return
-         msg = BotTheme('LIST_FOUND', NO=contents_no, NAME=key)
+        msg = BotTheme('LIST_FOUND', NO=contents_no, NAME=key)
         await editMessage(message, msg, button)
     else:
         await editMessage(message, BotTheme('LIST_NOT_FOUND', NAME=key))

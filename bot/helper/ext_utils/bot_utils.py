@@ -414,7 +414,7 @@ async def download_image_url(url):
         await mkdir(path)
     image_name = url.split('/')[-1]
     des_dir = ospath.join(path, image_name)
-    async with aioClientSession() as session:
+    async with ClientSession() as session:
         async with session.get(url) as response:
             if response.status == 200:
                 async with aiopen(des_dir, 'wb') as file:

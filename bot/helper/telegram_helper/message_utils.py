@@ -10,7 +10,7 @@ from pyrogram.errors import (FloodWait, PeerIdInvalid, RPCError, UserNotParticip
 from pyrogram.types import ChatPermissions
 
 from bot import (LOGGER, Interval, bot, bot_name, cached_dict, categories_dict, config_dict, download_dict_lock, status_reply_dict, status_reply_dict_lock, user)
-from bot.helper.ext_utils.bot_utils import get_readable_message, setInterval, sync_to_asyncc, download_image_url
+from bot.helper.ext_utils.bot_utils import get_readable_message, setInterval, sync_to_async, download_image_url
 from bot.helper.telegram_helper.button_build import ButtonMaker
 from bot.helper.ext_utils.exceptions import TgLinkException
 

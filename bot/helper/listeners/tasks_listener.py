@@ -82,7 +82,7 @@ class MirrorLeechListener:
         self.logMessage = logMessage
         self.extra_details = {'startTime': time()}
         self.upload_details = {}
-        elf.__setModeEng()
+        self.__setModeEng()
         self.__source()
         self.source_url = source_url if source_url and source_url.startswith('http') else ("https://t.me/share/url?url=" + source_url) if source_url else message.link
         self.source_msg = ''

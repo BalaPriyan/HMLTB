@@ -106,7 +106,7 @@ class MirrorLeechListener:
        mode += f" | #{'qBit' if self.isQbit else 'ytdlp' if self.isYtdlp else 'GDrive' if (self.isClone or self.isGdrive) else 'Mega' if self.isMega else 'Aria2' if self.source_url and self.source_url != self.message.link else 'Tg'}"
        self.upload_details['mode'] = mode
 
-     def __parseSource(self):
+   def __parseSource(self):
         if self.source_url == self.message.link:
             file = self.message.reply_to_message
             if file is not None and file.media is not None:

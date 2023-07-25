@@ -488,7 +488,7 @@ class TgUploader:
                 self.__sent_msg = await self.__sent_msg.reply_photo(photo=self.__up_path, chat_id=self.__sent_msg.chat.id, reply_to_message_id=self.__sent_msg.id,
                                                                     quote=True,
                                                                     caption=cap_mono,
-                                                                    reply_markup==await self.__buttons(self.__up_path),
+                                                                    reply_markup=await self.__buttons(self.__up_path),
                                                                     disable_notification=True,
                                                                     progress=self.__upload_progress)
 

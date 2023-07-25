@@ -1,6 +1,6 @@
 from pkg_resources import get_distribution
 
-from bot.helper.ext_utils.bot_utils import (MirrorStatus,
+from bot.helper.ext_utils.bot_utils import ( EngineStatus, MirrorStatus,
                                             get_readable_file_size,
                                             get_readable_time)
 
@@ -59,3 +59,7 @@ class GdriveStatus:
 
     def download(self):
         return self.__obj
+
+
+    def eng(self):
+        return EngineStatus.STATUS_GD

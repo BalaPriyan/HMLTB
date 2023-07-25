@@ -245,22 +245,23 @@ class TgUploader:
         self.__sent_msg = msgs_list[-1]
         if self.__sent_DMmsg:
             await sleep(0.5)
-            try:
-               if self.__dm_mode and (self.__leechmsg or self.__listener.isSuperGroup):
-                   destination = 'DM_MODE'
-                   await bot.copy_media_group(chat_id=self.__user_id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)
-               if self.__ldump:
-                   destination = 'Dump'
-                   for channel_id in self.__ldump.split():
-                       dump_chat = await chat_info(channel_id)
-                       try:
-                           await bot.copy_media_group(chat_id=dump_chat.id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)
-                       except (ChannelInvalid, PeerIdInvalid) as e:
-                           LOGGER.error(f"{e.NAME}: {e.MESSAGE} for {channel_id}")
-                           continue
-           except Exception as err:
-               if not self.__is_cancelled:
-                   LOGGER.error(f"Failed To Send in {destination}:\n{str(err)}")
+       try:
+            if self.__dm_mode and (self.__leechmsg or self.__listener.isSuperGroup):
+                     destination = 'DM_MODE'
+                     await bot.copy_media_group(chat_id=self.__user_id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)
+            if self.__ldump:
+                destination = 'Dump'
+                for channel_id in self.__ldump.split():
+                    dump_chat = await chat_info(channel_id)
+                    try:
+                        await bot.copy_media_group(chat_id=dump_chat.id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)
+                    except (ChannelInvalid, PeerIdInvalid) as e:
+                        LOGGER.error(f"{e.NAME}: {e.MESSAGE} for {channel_id}")
+                        continue
+        except Exception as err:
+            if not self.__is_cancelled:
+                LOGGER.error(f"Failed To Send in {destination}:\n{str(err)}")
+
 
 
     async def upload(self, o_files, m_size, size):
@@ -411,7 +412,7 @@ class TgUploader:
                                                                        progress=self.__upload_progress)
 
 
-                 if self.__prm_media and (self.__has_buttons or not self.__leechmsg):
+                if self.__prm_media and (self.__has_buttons or not self.__leechmsg):
                     try:
                         self.__sent_msg = await bot.copy_message(nrml_media.chat.id, nrml_media.chat.id, nrml_media.id, reply_to_message_id=self.__sent_msg.id, reply_markup=await self.__buttons(self.__up_path))
                         if self.__sent_msg: await nrml_media.delete()

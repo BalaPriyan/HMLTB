@@ -365,7 +365,7 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
         else:
             auth = ''
         await add_aria2c_download(link, path, listener, name, auth, ratio, seed_time)
-     await delete_links(message)
+    await delete_links(message)
 
 @new_task
 async def wzmlxcb(_, query):

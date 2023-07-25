@@ -1,4 +1,4 @@
-from bot.helper.ext_utils.bot_utils import MirrorStatus
+from bot.helper.ext_utils.bot_utils import EngineStatus, MirrorStatus
 from subprocess import run as rrun
 
 
@@ -47,3 +47,7 @@ class RcloneStatus:
 
     def download(self):
         return self.__obj
+
+
+    def eng(self):
+        return EngineStatus.STATUS_RCLONE

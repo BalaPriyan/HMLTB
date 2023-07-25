@@ -203,11 +203,11 @@ async def task_utils(message):
         user_id = message.from_user.id
         user_dict = user_data.get(user_id, {})
         user = await user_info(message._client, message.from_user.id)
-        if config_dict['BOT_PM'] or user_dict.get('bot_pm'):
+        if config_dict['DM_MODE'] or user_dict.get('dm_mode'):
             _msg, button = await BotPm_check(message, button)
             if _msg:
                 msg.append(_msg)
-    if (bmax_tasks := config_dict['BOT_MAX_TASKS']) and len(download_dict) >= bmax_tasks:
+    if (bmax_tasks := config_dict["REQUEST_LIMITS"]) and len(download_dict) >= bmax_tasks:
         msg.append(f"Bot Max Tasks limit exceeded.\nBot max tasks limit is {bmax_tasks}.\nPlease wait for the completion of other tasks.")
     if (maxtask := config_dict['USER_MAX_TASKS']) and await get_user_tasks(message.from_user.id, maxtask):
         msg.append(f"Your tasks limit exceeded for {maxtask} tasks")

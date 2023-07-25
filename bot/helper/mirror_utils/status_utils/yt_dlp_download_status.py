@@ -1,6 +1,6 @@
 from pkg_resources import get_distribution
 
-from bot.helper.ext_utils.bot_utils import (MirrorStatus, async_to_sync,
+from bot.helper.ext_utils.bot_utils import ( EngineStatus, MirrorStatus, async_to_sync,
                                             get_readable_file_size,
                                             get_readable_time)
 from bot.helper.ext_utils.fs_utils import get_path_size
@@ -66,3 +66,6 @@ class YtDlpDownloadStatus:
 
     def download(self):
         return self.__obj
+
+    def eng(self):
+        return EngineStatus.STATUS_YT

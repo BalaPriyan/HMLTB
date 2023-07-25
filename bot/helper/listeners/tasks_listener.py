@@ -82,7 +82,7 @@ class MirrorLeechListener:
         self.logMessage = logMessage
         self.extra_details = {'startTime': time()}
         self.upload_details = {}
-        self.__setMode()
+        elf.__setModeEng()
         self.__source()
         self.source_url = source_url if source_url and source_url.startswith('http') else ("https://t.me/share/url?url=" + source_url) if source_url else message.link
         self.source_msg = ''
@@ -100,11 +100,11 @@ class MirrorLeechListener:
         except:
             pass
 
-    def __setMode(self):
+    def __setModeEng()(self):
        mode = f" #{'Leech' if self.isLeech else 'Clone' if self.isClone else 'RClone' if self.upPath not in ['gd', 'ddl'] else 'DDL' if self.upPath != 'gd' else 'GDrive'}"
        mode += ' (Zip)' if self.compress else ' (Unzip)' if self.extract else ''
        mode += f" | #{'qBit' if self.isQbit else 'ytdlp' if self.isYtdlp else 'GDrive' if (self.isClone or self.isGdrive) else 'Mega' if self.isMega else 'Aria2' if self.source_url and self.source_url != self.message.link else 'Tg'}"
-       self.upload_details['mode'] = mode
+       self.extra_details['mode'] = mode
 
     def __parseSource(self):
         if self.source_url == self.message.link:
@@ -159,7 +159,7 @@ class MirrorLeechListener:
             self.botpmmsg = await sendCustomMsg(self.message.from_user.id, BotTheme('PM_START', msg_link=self.source_url))
         if config_dict['LINKS_LOG_ID']:
             dispTime = datetime.now(timezone(config_dict['TIMEZONE'])).strftime('%d/%m/%y, %I:%M:%S %p')
-            self.linkslogmsg = await sendCustomMsg(config_dict['LINKS_LOG_ID'], BotTheme('LINKS_START', Mode=self.upload_details['mode'], Tag=self.tag) + BotTheme('LINKS_SOURCE', On=dispTime, Source=self.source_msg))
+            self.linkslogmsg = await sendCustomMsg(config_dict['LINKS_LOG_ID'], BotTheme('LINKS_START', Mode=self.extra_details['mode'], Tag=self.tag) + BotTheme('LINKS_SOURCE', On=dispTime, Source=self.source_msg))
         user_dict = user_data.get(self.message.from_user.id, {})  
         if DATABASE_URL and config_dict['STOP_DUPLICATE_TASKS'] and self.raw_url:
             await DbManger().add_download_url(self.raw_url, self.tag)
@@ -442,7 +442,7 @@ class MirrorLeechListener:
         msg = BotTheme('NAME', Name="Task has been Completed!"if config_dict['SAFE_MODE'] else escape(name))
         msg += BotTheme('SIZE', Size=get_readable_file_size(size))
         msg += BotTheme('ELAPSE', Time=get_readable_time(time() - self.message.date.timestamp()))
-        msg += BotTheme('MODE', Mode=self.upload_details['mode'])
+        msg += BotTheme('MODE', Mode=self.extra_details['mode'])
         LOGGER.info(f'Task Done: {name}')
         buttons = ButtonMaker()
         if self.isLeech:

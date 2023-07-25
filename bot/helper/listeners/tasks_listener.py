@@ -12,7 +12,7 @@ from aiofiles.os import listdir, makedirs, path as aiopath, remove as aioremove
 from aioshutil import move
 
 from bot import (DATABASE_URL, OWNER_ID, DOWNLOAD_DIR, GLOBAL_EXTENSION_FILTER, LOGGER,
-                 MAX_SPLIT_SIZE, Interval, aria2, config_dict, download_dict,, bot_name,
+                 MAX_SPLIT_SIZE, Interval, aria2, config_dict, download_dict, bot_name,
                  download_dict_lock, non_queued_dl, non_queued_up,
                  queue_dict_lock, queued_dl, queued_up, status_reply_dict_lock,
                  user_data)

@@ -61,7 +61,7 @@ class TgUploader:
         self.__leechmsg = {}
 
 
-   async def __buttons(self, up_path):
+    async def __buttons(self, up_path):
         buttons = ButtonMaker()
         try:
             if self.__mediainfo:
@@ -246,21 +246,21 @@ class TgUploader:
         if self.__sent_DMmsg:
             await sleep(0.5)
             try:
-              if self.__dm_mode and (self.__leechmsg or self.__listener.isSuperGroup):
-                destination = 'DM_MODE'
-                await bot.copy_media_group(chat_id=self.__user_id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)
-            if self.__ldump:
-                destination = 'Dump'
-                for channel_id in self.__ldump.split():
-                    dump_chat = await chat_info(channel_id)
-                    try:
-                        await bot.copy_media_group(chat_id=dump_chat.id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)
-                    except (ChannelInvalid, PeerIdInvalid) as e:
-                        LOGGER.error(f"{e.NAME}: {e.MESSAGE} for {channel_id}")
-                        continue
-        except Exception as err:
-            if not self.__is_cancelled:
-                LOGGER.error(f"Failed To Send in {destination}:\n{str(err)}")
+               if self.__dm_mode and (self.__leechmsg or self.__listener.isSuperGroup):
+                   destination = 'DM_MODE'
+                   await bot.copy_media_group(chat_id=self.__user_id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)
+               if self.__ldump:
+                   destination = 'Dump'
+                   for channel_id in self.__ldump.split():
+                       dump_chat = await chat_info(channel_id)
+                       try:
+                           await bot.copy_media_group(chat_id=dump_chat.id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id)
+                       except (ChannelInvalid, PeerIdInvalid) as e:
+                           LOGGER.error(f"{e.NAME}: {e.MESSAGE} for {channel_id}")
+                           continue
+           except Exception as err:
+               if not self.__is_cancelled:
+                   LOGGER.error(f"Failed To Send in {destination}:\n{str(err)}")
 
 
     async def upload(self, o_files, m_size, size):

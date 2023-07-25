@@ -106,6 +106,36 @@ class MirrorLeechListener:
        mode += f" | #{'qBit' if self.isQbit else 'ytdlp' if self.isYtdlp else 'GDrive' if (self.isClone or self.isGdrive) else 'Mega' if self.isMega else 'Aria2' if self.source_url and self.source_url != self.message.link else 'Tg'}"
        self.upload_details['mode'] = mode
 
+     def __parseSource(self):
+        if self.source_url == self.message.link:
+            file = self.message.reply_to_message
+            if file is not None and file.media is not None:
+                media = getattr(file, file.media.value)
+                self.source_msg = f'┎ <b>Name:</b> <i>{media.file_name}</i>\n' \
+                                  f'┠ <b>Type:</b> {media.mime_type}\n' \
+                                  f'┠ <b>Size:</b> {get_readable_file_size(media.file_size)}\n' \
+                                  f'┠ <b>Created Date:</b> {media.date}\n' \
+                                  f'┖ <b>Media Type:</b> {(file.media.value).capitalize()}'
+            else:
+                self.source_msg = f"<code>{self.message.reply_to_message.text}</code>"
+        elif self.source_url.startswith('https://t.me/share/url?url='):
+            msg = self.source_url.replace('https://t.me/share/url?url=', '')
+            if msg.startswith('magnet'):
+                mag = unquote(msg).split('&')
+                tracCount, name, amper = 0, '', False
+                for check in mag:
+                    if check.startswith('tr='):
+                        tracCount += 1
+                    elif check.startswith('magnet:?xt=urn:btih:'):
+                        hashh = check.replace('magnet:?xt=urn:btih:', '')
+                    else:
+                        name += ('&' if amper else '') + check.replace('dn=', '').replace('+', '')
+                        amper = True
+                self.source_msg = f"┎ <b>Name:</b> <i>{name}</i>\n┠ <b>Magnet Hash:</b> <code>{hashh}</code>\n┠ <b>Total Trackers:</b> {tracCount} \n┖ <b>Share:</b> <a href='https://t.me/share/url?url={quote(msg)}'>Share To Telegram</a>"
+            else:
+                self.source_msg = f"<code>{msg}</code>"
+        else:
+            self.source_msg = f"<code>{self.source_url}</code>"
   
     def __source(self):
         if sender_chat := self.message.sender_chat:

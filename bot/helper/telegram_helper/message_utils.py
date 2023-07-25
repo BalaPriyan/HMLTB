@@ -321,7 +321,7 @@ async def send_to_chat(client, chatId, text, buttons=None):
 
 
 async def sendLogMessage(message, link, tag):
-    if not (log_chat := config_dict['LOG_CHAT_ID']):
+    if not (log_chat := config_dict['LEECH_LOG_ID']):
         return
     try:
         isSuperGroup = message.chat.type in [

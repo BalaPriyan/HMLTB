@@ -4,7 +4,7 @@ from asyncio import sleep
 from telegraph.aio import Telegraph
 from telegraph.exceptions import RetryAfterError
 
-from bot import LOGGER, bot_loop, config_dic
+from bot import LOGGER, bot_loop, config_dict
 
 class TelegraphHelper:
     def __init__(self, author_name=None, author_url=None):

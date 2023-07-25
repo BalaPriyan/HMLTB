@@ -23,7 +23,7 @@ async def sendMessage(message, text, buttons=None):
                     photo = rchoice(config_dict['IMAGES'])
                 return await message.reply_photo(photo=photo, reply_to_message_id=message.id,
                                                  caption=text, reply_markup=buttons, disable_notification=True)
-                        except IndexError:
+            except IndexError:
                 pass
             except (PhotoInvalidDimensions, WebpageCurlFailed, MediaEmpty):
                 des_dir = await download_image_url(photo)

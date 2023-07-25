@@ -175,7 +175,7 @@ async def restart(_, message):
 @new_thread
 async def ping(_, message):
     start_time = monotonic()
-    reply = await sendMessage(message, BotTheme('PING')),)
+    reply = await sendMessage(message, BotTheme('PING'))
     end_time = monotonic()
     ping_time = int((end_time - start_time) * 1000)
     await editMessage(reply, BotTheme('PING_VALUE', value=(end_time - start_time)))
@@ -183,7 +183,7 @@ async def ping(_, message):
 async def log(_, message):
     buttons = ButtonMaker()
     buttons.ibutton('📑 Log Display', f'wzmlx {message.from_user.id} logdisplay')
-    await sendFile(message, 'Z_Log.txt', buttons=buttons.build_menu(1))
+    await sendFile(message, 'Z_Logs.txt', buttons=buttons.build_menu(1))
 
 async def search_images():
     if config_dict['IMG_SEARCH']:

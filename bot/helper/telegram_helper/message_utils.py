@@ -359,28 +359,28 @@ async def isAdmin(message, user_id=None):
 
 async def forcesub(message, ids, button=None):
    join_button = {}
-    _msg = ''
-    for channel_id in ids.split():
-        chat = await chat_info(channel_id)
-        try:
-            await chat.get_member(message.from_user.id)
-        except UserNotParticipant:
-            if username := chat.username:
-                invite_link = f"https://t.me/{username}"
-            else:
-                invite_link = chat.invite_link
-            join_button[chat.title] = invite_link
-        except RPCError as e:
-            LOGGER.error(f"{e.NAME}: {e.MESSAGE} for {channel_id}")
-        except Exception as e:
-            LOGGER.error(f'{e} for {channel_id}')
-    if join_button:
-        if button is None:
-            button = ButtonMaker()
-        _msg = "You haven't joined our channel yet!"
-        for key, value in join_button.items():
-            button.ubutton(f'Join {key}', value, 'footer')
-    return _msg, button
+   _msg = ''
+   for channel_id in ids.split():
+       chat = await chat_info(channel_id)
+       try:
+          await chat.get_member(message.from_user.id)
+       except UserNotParticipant:
+           if username := chat.username:
+               invite_link = f"https://t.me/{username}"
+           else:
+               invite_link = chat.invite_link
+           join_button[chat.title] = invite_link
+       except RPCError as e:
+           LOGGER.error(f"{e.NAME}: {e.MESSAGE} for {channel_id}")
+       except Exception as e:
+           LOGGER.error(f'{e} for {channel_id}')
+   if join_button:
+       if button is None:
+           button = ButtonMaker()
+       _msg = "You haven't joined our channel yet!"
+       for key, value in join_button.items():
+           button.ubutton(f'Join {key}', value, 'footer')
+   return _msg, button
 
 
 async def message_filter(message):

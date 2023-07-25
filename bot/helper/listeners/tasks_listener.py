@@ -102,9 +102,9 @@ class MirrorLeechListener:
 
     def __setMode(self):
        mode = f" #{'Leech' if self.isLeech else 'Clone' if self.isClone else 'RClone' if self.upPath not in ['gd', 'ddl'] else 'DDL' if self.upPath != 'gd' else 'GDrive'}"
-        mode += ' (Zip)' if self.compress else ' (Unzip)' if self.extract else ''
-        mode += f" | #{'qBit' if self.isQbit else 'ytdlp' if self.isYtdlp else 'GDrive' if (self.isClone or self.isGdrive) else 'Mega' if self.isMega else 'Aria2' if self.source_url and self.source_url != self.message.link else 'Tg'}"
-        self.upload_details['mode'] = mode
+       mode += ' (Zip)' if self.compress else ' (Unzip)' if self.extract else ''
+       mode += f" | #{'qBit' if self.isQbit else 'ytdlp' if self.isYtdlp else 'GDrive' if (self.isClone or self.isGdrive) else 'Mega' if self.isMega else 'Aria2' if self.source_url and self.source_url != self.message.link else 'Tg'}"
+       self.upload_details['mode'] = mode
 
   
     def __source(self):
@@ -477,6 +477,20 @@ class MirrorLeechListener:
                         non_queued_up.remove(self.uid)
                 await start_from_queued()
                 return
+        else:
+            is_DDL = 'gofile' in link or 'streamsb' in link
+            msg += BotTheme('M_TYPE', Mimetype=mime_type)
+            if mime_type == "Folder":
+                if not is_DDL:
+                    msg += BotTheme('M_SUBFOLD', Folder=folders)
+                    msg += BotTheme('TOTAL_FILES', Files=files)
+            if link or rclonePath and config_dict['RCLONE_SERVE_URL']:
+
+                if is_DDL:
+                    buttons.ubutton(BotTheme('DDL_LINK', Serv='GoFile'), link)
+                elif link:
+                    if not config_dict['DISABLE_DRIVE_LINK'] and user_id != OWNER_ID:
+                        buttons.ubutton(BotTheme('CLOUD_LINK'), link)
                 else:
                     msg += BotTheme('RCPATH', RCpath=rclonePath)
                 if rclonePath and (RCLONE_SERVE_URL := config_dict['RCLONE_SERVE_URL']):

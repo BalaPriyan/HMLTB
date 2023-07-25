@@ -1,4 +1,4 @@
-from bot import CMD_SUFFIX
+from bot import CMD_SUFFIX, config_dict
 
 
 class _BotCommands:

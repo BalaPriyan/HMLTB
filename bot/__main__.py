@@ -16,6 +16,7 @@ from aiofiles.os import remove as aioremove
 from psutil import (boot_time, cpu_count, cpu_percent, cpu_freq, disk_usage, net_io_counters, swap_memory, virtual_memory)
 from pyrogram.filters import command, private, regex
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot import (DATABASE_URL, INCOMPLETE_TASK_NOTIFIER, LOGGER, STOP_DUPLICATE_TASKS, Interval, QbInterval, bot, botStartTime, config_dict, scheduler, user_data, get_version)
 from bot.helper.listeners.aria2_listener import start_aria2_listener
@@ -28,6 +29,7 @@ from .helper.telegram_helper.filters import CustomFilters
 from .helper.telegram_helper.button_build import ButtonMaker
 from .helper.telegram_helper.message_utils import (editMessage, sendFile, sendMessage, auto_delete_message)
 from .modules import (anonymous, authorize, bot_settings, cancel_mirror, category_select, clone, eval, gd_count, gd_delete, gd_list, leech_del, mirror_leech, rmdb, rss, shell, status, torrent_search, torrent_select, users_settings, ytdlp, speedtest, save_msg, images, imdb, anilist, mediainfo, mydramalist, gen_pyro_sess, gd_clean, broadcast )
+from .helper.themes import BotTheme
 
 
 @new_thread

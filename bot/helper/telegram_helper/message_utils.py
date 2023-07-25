@@ -17,7 +17,7 @@ from bot.helper.ext_utils.exceptions import TgLinkException
 
 async def sendMessage(message, text, buttons=None, photo=None):
     try:
-         if photo:
+        if photo:
             try:
                 if photo == 'IMAGES':
                     photo = rchoice(config_dict['IMAGES'])

@@ -20,7 +20,7 @@ from bot import GLOBAL_EXTENSION_FILTER, IS_PREMIUM_USER, bot, config_dict, user
 from bot.helper.themes import BotTheme
 from bot.helper.ext_utils.bot_utils import get_readable_file_size, sync_to_async
 from bot.helper.ext_utils.fs_utils import clean_unwanted, get_base_name, is_archive
-from bot.helper.ext_utils.leech_utils import get_document_type, get_media_info, take_ss, remove_unwanted, get_mediainfo_link, format_filename
+from bot.helper.ext_utils.leech_utils import get_document_type, get_media_info, take_ss, get_mediainfo_link, format_filename
 from bot.helper.telegram_helper.message_utils import sendCustomMsg, sendMultiMessage, chat_info
 from bot.helper.telegram_helper.button_build import ButtonMaker
 
@@ -164,10 +164,8 @@ class TgUploader:
 
 
     async def __prepare_file(self, file_, dirpath):
-        if self.__lprefix or self.__lremname:
-            file_ = await remove_unwanted(file_, self.__lremname)
-            cap_mono = f"<i>{self.__lprefix} {file_}</i>"
-            self.__lprefix = re_sub('<.*?>', '', self.__lprefix)
+        file_, cap_mono = await format_filename(prefile_, self.__user_id, dirpath)
+        if prefile_ != file_:
             if self.__listener.seed and not self.__listener.newDir and not dirpath.endswith("/splited_files_z"):
                 dirpath = f'{dirpath}/copied_z'
                 await makedirs(dirpath, exist_ok=True)

@@ -325,10 +325,7 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
             await delete_links(message)
             return
 
-    listener = MirrorLeechListener(message, compress, extract, isQbit,
-                                   isLeech, tag, select,
-                                   seed, sameDir, rcf, up, join, False, raw_url,
-                                   drive_id, index_link, dmMessage, logMessage, source_url=link)
+    listener = MirrorLeechListener(message, compress, extract, isQbit, isLeech, tag, select, seed, sameDir, rcf, up, join, False, raw_url, drive_id, index_link, dmMessage, logMessage, source_url=link)
 
     if file_ is not None:
         await delete_links(message)

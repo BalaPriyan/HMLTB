@@ -282,6 +282,8 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
     if not isLeech:
         if config_dict['DEFAULT_UPLOAD'] == 'rc' and not up or up == 'rc':
             up = config_dict['RCLONE_PATH']
+        elif config_dict['DEFAULT_UPLOAD'] == 'ddl' and not up or up == 'ddl':
+            up = 'ddl'
         if not up and config_dict['DEFAULT_UPLOAD'] == 'gd':
             up = 'gd'
             if not drive_id and len(categories_dict) > 1:
@@ -295,7 +297,7 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
             await sendMessage(message, 'No Rclone Destination!')
             await delete_links(message)
             return
-        elif up not in ['rcl', 'gd']:
+        elif up not in ['rcl', 'gd', 'ddl']:
             if up.startswith('mrcc:'):
                 config_path = f'zcl/{message.from_user.id}.conf'
             else:
@@ -304,7 +306,7 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
                 await sendMessage(message, f"Rclone Config: {config_path} not Exists!")
                 await delete_links(message)
                 return
-        if up != 'gd' and not is_rclone_path(up):
+        if up != 'gd' and up != 'ddl' and not is_rclone_path(up):
             await sendMessage(message, 'Wrong Rclone Upload Destination!')
             await delete_links(message)
             return
@@ -376,7 +378,7 @@ async def wzmlxcb(_, query):
         return await query.answer(text="Not Message User!", show_alert=True)
     elif data[2] == "logdisplay":
         await query.answer()
-        async with aiopen('Z_Logs.txt', 'r') as f:
+        async with aiopen('Logs.txt', 'r') as f:
             logFileLines = (await f.read()).splitlines()
         def parseline(line):
             try:

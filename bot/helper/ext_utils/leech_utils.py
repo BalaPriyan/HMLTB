@@ -201,7 +201,7 @@ async def format_filename(file_, user_id, dirpath=None, isMirror=False):
     user_dict = user_data.get(user_id, {})
     ftag, ctag = ('m', 'MIRROR') if isMirror else ('l', 'LEECH')
     prefix = config_dict[f'{ctag}_FILENAME_PREFIX'] if (val:=user_dict.get(f'{ftag}prefix', '')) == '' else val
-    remname = config_dict[f'{ctag}_FILENAME_REMNAME'] if (val:=user_dict.get(f'{ftag}remname', '')) == '' else val
+    remname = config_dict[f'{ctag}_REMOVE_UNWANTED'] if (val:=user_dict.get(f'{ftag}remname', '')) == '' else val
     suffix = config_dict[f'{ctag}_FILENAME_SUFFIX'] if (val:=user_dict.get(f'{ftag}suffix', '')) == '' else val
     lcaption = config_dict['LEECH_FILENAME_CAPTION'] if (val:=user_dict.get('lcaption', '')) == '' else val
  

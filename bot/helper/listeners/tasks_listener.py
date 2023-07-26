@@ -65,7 +65,7 @@ class MirrorLeechListener:
         self.newDir = ""
         self.dir = f"{DOWNLOAD_DIR}{self.uid}"
         self.select = select
-        self.isSuperGroup = self.message.chat.type in [self.message.chat.type.SUPERGROUP, self.message.chat.type.CHANNEL]
+        self.isSuperGroup = message.chat.type in [ChatType.SUPERGROUP, ChatType.CHANNEL]
         self.isPrivate = message.chat.type == ChatType.BOT
         self.suproc = None
         self.sameDir = sameDir

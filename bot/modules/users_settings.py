@@ -76,9 +76,9 @@ async def get_user_settings(from_user, key=None, edit_type=None, edit_mode=None)
     elif key == 'universal':
         buttons.ibutton("YT-DLP Options", f"userset {user_id} yt_opt")
         ytopt = 'Not Exists' if (val:=user_dict.get('yt_opt', config_dict.get('YT_DLP_OPTIONS', ''))) == '' else val
-        bot_pm = "Enabled" if user_dict.get('bot_pm', config_dict['BOT_PM']) else "Disabled"
+        bot_pm = "Enabled" if user_dict.get('bot_pm', config_dict['DM_MODE']) else "Disabled"
         buttons.ibutton('Disable Bot PM' if bot_pm == 'Enabled' else 'Enable Bot PM', f"userset {user_id} bot_pm")
-        if config_dict['BOT_PM']:
+        if config_dict['DM_MODE']:
             bot_pm = "Force Enabled"
         mediainfo = "Enabled" if user_dict.get('mediainfo', config_dict['SHOW_MEDIAINFO']) else "Disabled"
         buttons.ibutton('Disable MediaInfo' if mediainfo == 'Enabled' else 'Enable MediaInfo', f"userset {user_id} mediainfo")
@@ -108,7 +108,7 @@ async def get_user_settings(from_user, key=None, edit_type=None, edit_mode=None)
         msuffix = 'Not Exists' if (val:=user_dict.get('msuffix', config_dict.get('MIRROR_FILENAME_SUFFIX', ''))) == '' else val
             
         buttons.ibutton("Mirror Remname", f"userset {user_id} mremname")
-        mremname = 'Not Exists' if (val:=user_dict.get('mremname', config_dict.get('MIRROR_FILENAME_REMNAME', ''))) == '' else val
+        mremname = 'Not Exists' if (val:=user_dict.get('mremname', config_dict.get('MIRROR_REMOVE_UNWANTED', ''))) == '' else val
 
         ddl_serv = len(val.keys()) if (val := user_dict.get('ddl_servers', False)) else 0
         buttons.ibutton("DDL Servers", f"userset {user_id} ddl_servers")
@@ -148,7 +148,7 @@ async def get_user_settings(from_user, key=None, edit_type=None, edit_mode=None)
         lsuffix = 'Not Exists' if (val:=user_dict.get('lsuffix', config_dict.get('LEECH_FILENAME_SUFFIX', ''))) == '' else val
             
         buttons.ibutton("Leech Remname", f"userset {user_id} lremname")
-        lremname = 'Not Exists' if (val:=user_dict.get('lremname', config_dict.get('LEECH_FILENAME_REMNAME', ''))) == '' else val
+        lremname = 'Not Exists' if (val:=user_dict.get('lremname', config_dict.get('LEECH_REMOVE_UNWANTED', ''))) == '' else val
 
         buttons.ibutton("Leech Dump", f"userset {user_id} ldump")
         ldump = 'Not Exists' if (val:=user_dict.get('ldump', '')) == '' else val
@@ -430,7 +430,7 @@ async def edit_user_settings(client, query):
             await DbManger().update_user_data(user_id)
     elif data[2] in ['bot_pm', 'mediainfo']:
         handler_dict[user_id] = False
-        if data[2] == 'bot_pm' and config_dict['BOT_PM'] or data[2] == 'mediainfo' and config_dict['SHOW_MEDIAINFO']:
+        if data[2] == 'bot_pm' and config_dict['DM_MODE'] or data[2] == 'mediainfo' and config_dict['SHOW_MEDIAINFO']:
             return await query.answer("Force Enabled! Can't Alter Settings", show_alert=True)
         await query.answer()
         update_user_ldata(user_id, data[2], not user_dict.get(data[2], False))

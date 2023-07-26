@@ -169,7 +169,7 @@ class TgUploader:
             if self.__listener.seed and not self.__listener.newDir and not dirpath.endswith("/splited_files_z"):
                 dirpath = f'{dirpath}/copied_z'
                 await makedirs(dirpath, exist_ok=True)
-                new_path = ospath.join(dirpath, f"{self.__lprefix} {file_}")
+                new_path = ospath.join(dirpath, file_)
                 self.__up_path = await copy(self.__up_path, new_path)
             else:
                 new_path = ospath.join(dirpath, f"{self.__lprefix} {file_}")
@@ -263,10 +263,10 @@ class TgUploader:
 
 
     async def upload(self, o_files, m_size, size):
+        await self.__user_settings()
         res = await self.__msg_to_reply()
         if not res:
             return
-        await self.__user_settings()
         for dirpath, _, files in sorted(await sync_to_async(walk, self.__path)):
             if dirpath.endswith('/yt-dlp-thumb'):
                 continue
@@ -287,7 +287,8 @@ class TgUploader:
                         continue
                     if self.__is_cancelled:
                         return
-                    cap_mono = await self.__prepare_file(file_, dirpath)
+                    self.__prm_media = True if f_size > 2097152000 else False
+                    cap_mono file_ = await self.__prepare_file(file_, dirpath)
                     if self.__last_msg_in_group:
                         group_lists = [x for v in self.__media_dict.values()
                                        for x in v.keys()]

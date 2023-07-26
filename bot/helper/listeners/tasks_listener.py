@@ -81,11 +81,11 @@ class MirrorLeechListener:
         self.dmMessage = dmMessage
         self.logMessage = logMessage
         self.extra_details = {'startTime': time()}
-        self.__setMode()
-        self.__source()
         self.source_url = source_url if source_url and source_url.startswith('http') else ("https://t.me/share/url?url=" + source_url) if source_url else message.link
         self.source_msg = ''
         self.__parseSource()
+        self.__setMode()
+        self.__source()
 
   
     async def clean(self):

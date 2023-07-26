@@ -160,7 +160,7 @@ async def login(_, message):
 
 
 async def restart(client, message):
-    restart_message = await sendMessage(message, "Restarting...")
+    restart_message = await sendMessage(message, BotTheme('RESTARTING'))
     if scheduler.running:
         scheduler.shutdown(wait=False)
     for interval in [QbInterval, Interval]:
@@ -304,6 +304,7 @@ async def bot_help(client, message):
 
 
 async def restart_notification():
+    now=datetime.now(timezone(config_dict['TIMEZONE']))
     if await aiopath.isfile(".restartmsg"):
         with open(".restartmsg") as f:
             chat_id, msg_id = map(int, f)
@@ -314,7 +315,6 @@ async def restart_notification():
         try:
             if msg.startswith(BotTheme('RESTART_SUCCESS')):
                 await bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=msg)
-                await bot.send_message(chat_id, msg, disable_web_page_preview=True, reply_to_message_id=msg_id)
                 await aioremove(".restartmsg")
             else:
                 await bot.send_message(chat_id=cid, text=msg, disable_web_page_preview=True,

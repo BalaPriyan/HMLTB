@@ -81,7 +81,7 @@ class MirrorLeechListener:
         self.dmMessage = dmMessage
         self.logMessage = logMessage
         self.extra_details = {'startTime': time()}
-        self.__setModeEng()
+        self.__setMode()
         self.__source()
         self.source_url = source_url if source_url and source_url.startswith('http') else ("https://t.me/share/url?url=" + source_url) if source_url else message.link
         self.source_msg = ''
@@ -99,7 +99,7 @@ class MirrorLeechListener:
         except:
             pass
 
-    def __setModeEng(self):
+    def __setMode(self):
         mode = f" #{'Leech'if self.isLeech else 'Clone' if self.isClone else 'RClone' if self.upPath not in ['gd', 'ddl'] else 'DDL' if self.upPath != 'gd' else 'GDrive'}"
         mode += ' (Zip)' if self.compress else ' (Unzip)' if self.extract else ''
         mode += f" | #{'qBit' if self.isQbit else 'ytdlp' if self.isYtdlp else 'GDrive' if (self.isClone or self.isGdrive) else 'Mega' if self.isMega else 'Aria2' if self.source_url and self.source_url != self.message.link else 'Tg'}"

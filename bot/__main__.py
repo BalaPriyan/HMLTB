@@ -185,7 +185,7 @@ async def ping(_, message):
 async def log(_, message):
     buttons = ButtonMaker()
     buttons.ibutton('📑 Log Display', f'wzmlx {message.from_user.id} logdisplay')
-    await sendFile(message, 'Z_Logs.txt', buttons=buttons.build_menu(1))
+    await sendFile(message, 'Logs.txt', buttons=buttons.build_menu(1))
 
 async def search_images():
     if config_dict['IMG_SEARCH']:

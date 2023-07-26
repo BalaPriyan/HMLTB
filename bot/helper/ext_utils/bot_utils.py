@@ -212,7 +212,7 @@ def get_readable_message():
                 msg += BotTheme('SPEED', Speed=download.speed())
             msg += BotTheme('ELAPSED', Elapsed=get_readable_time(time() - download.message.date.timestamp()))
             msg += BotTheme('ENGINE', Engine=download.eng())
-            msg += BotTheme('STA_MODE', Mode=download.upload_details['mode'])
+            msg += BotTheme('STA_MODE', Mode=download.extra_details['mode'])
             if hasattr(download, 'seeders_num'):
                 try:
                     msg += BotTheme('SEEDERS', Seeders=download.seeders_num())
@@ -267,8 +267,8 @@ def get_readable_message():
     buttons = ButtonMaker()
     buttons.ibutton(BotTheme('REFRESH', Page=f"{PAGE_NO}/{PAGES}"), "status ref")
     if tasks > STATUS_LIMIT:
-        if config_dict['BOT_MAX_TASKS']:
-            msg += BotTheme('BOT_TASKS', Tasks=tasks, Ttask=config_dict['BOT_MAX_TASKS'], Free=config_dict['BOT_MAX_TASKS']-tasks)
+        if config_dict[REQUEST_LIMITS'']:
+            msg += BotTheme('BOT_TASKS', Tasks=tasks, Ttask=config_dict['REQUEST_LIMITS'], Free=config_dict['REQUEST_LIMITS']-tasks)
         else:
             msg += BotTheme('TASKS', Tasks=tasks)
         buttons = ButtonMaker()

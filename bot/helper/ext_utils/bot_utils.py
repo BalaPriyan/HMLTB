@@ -267,7 +267,7 @@ def get_readable_message():
     buttons = ButtonMaker()
     buttons.ibutton(BotTheme('REFRESH', Page=f"{PAGE_NO}/{PAGES}"), "status ref")
     if tasks > STATUS_LIMIT:
-        if config_dict[REQUEST_LIMITS'']:
+        if config_dict['REQUEST_LIMITS']:
             msg += BotTheme('BOT_TASKS', Tasks=tasks, Ttask=config_dict['REQUEST_LIMITS'], Free=config_dict['REQUEST_LIMITS']-tasks)
         else:
             msg += BotTheme('TASKS', Tasks=tasks)

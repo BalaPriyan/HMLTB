@@ -49,7 +49,7 @@ from bot.helper.themes import BotTheme
 
 class MirrorLeechListener:
     def __init__(self, message, compress=False, extract=False, isQbit=False, isLeech=False, tag=None, select=False, seed=False, sameDir=None, rcFlags=None, upPath=None, join=False, isClone=False, raw_url=None, drive_id=None, index_link=None, dmMessage=None, logMessage=None, isYtdlp=False, source_url=None):
-        if not sameDir:
+        if sameDir is None:
             sameDir = {}
         self.message = message
         self.uid = message.id
@@ -81,7 +81,6 @@ class MirrorLeechListener:
         self.dmMessage = dmMessage
         self.logMessage = logMessage
         self.extra_details = {'startTime': time()}
-        self.upload_details = {}
         self.__setModeEng()
         self.__source()
         self.source_url = source_url if source_url and source_url.startswith('http') else ("https://t.me/share/url?url=" + source_url) if source_url else message.link
@@ -161,6 +160,8 @@ class MirrorLeechListener:
             dispTime = datetime.now(timezone(config_dict['TIMEZONE'])).strftime('%d/%m/%y, %I:%M:%S %p')
             self.linkslogmsg = await sendCustomMsg(config_dict['LINKS_LOG_ID'], BotTheme('LINKS_START', Mode=self.extra_details['mode'], Tag=self.tag) + BotTheme('LINKS_SOURCE', On=dispTime, Source=self.source_msg))
         user_dict = user_data.get(self.message.from_user.id, {})  
+        if config_dict['DM_MODE'] or user_dict.get('bot_pm'):
+            self.dmMessage = await sendCustomMsg(self.message.from_user.id, BotTheme('PM_START', msg_link=self.source_url))
         if DATABASE_URL and config_dict['STOP_DUPLICATE_TASKS'] and self.raw_url:
             await DbManger().add_download_url(self.raw_url, self.tag)
         if self.isSuperGroup and config_dict['INCOMPLETE_TASK_NOTIFIER'] and DATABASE_URL:

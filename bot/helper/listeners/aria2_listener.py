@@ -90,7 +90,7 @@ async def __onDownloadStarted(api, gid):
                 if name is not None:
                     telegraph_content, contents_no = await sync_to_async(GoogleDriveHelper().drive_list, name, True)
                     if telegraph_content:
-                        msg = f"File/Folder is already available in Drive.\nHere are {contents_no} list results:"
+                        msg = BotTheme('STOP_DUPLICATE', content=contents_no)
                         button = await get_telegraph_list(telegraph_content)
                         await listener.onDownloadError(msg, button)
                         await sync_to_async(api.remove, [download], force=True, files=True)

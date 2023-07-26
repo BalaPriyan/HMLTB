@@ -156,7 +156,7 @@ class MirrorLeechListener:
         if self.dmMessage == 'BotStarted':
             self.dmMessage = await send_to_chat(self.message._client, self.message.from_user.id, self.message.link)
         if config_dict['DM_MODE'] or user_dict.get('bot_pm'):
-            self.botpmmsg = await sendCustomMsg(self.message.from_user.id, BotTheme('PM_START', msg_link=self.source_url))
+            self.dmMessage = await sendCustomMsg(self.message.from_user.id, BotTheme('PM_START', msg_link=self.source_url))
         if config_dict['LINKS_LOG_ID']:
             dispTime = datetime.now(timezone(config_dict['TIMEZONE'])).strftime('%d/%m/%y, %I:%M:%S %p')
             self.linkslogmsg = await sendCustomMsg(config_dict['LINKS_LOG_ID'], BotTheme('LINKS_START', Mode=self.extra_details['mode'], Tag=self.tag) + BotTheme('LINKS_SOURCE', On=dispTime, Source=self.source_msg))

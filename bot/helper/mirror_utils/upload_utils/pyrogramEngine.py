@@ -76,9 +76,9 @@ class TgUploader:
 
     async def __copy_file(self):
         try:
-            if self.__bot_pm and (self.__leechmsg or self.__listener.isSuperGroup):
+            if self__dm_mode and (self.__leechmsg or self.__listener.isSuperGroup):
                 destination = 'Bot PM'
-                copied = await bot.copy_message(chat_id=self.__user_id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id, reply_to_message_id=self.__listener.botpmmsg.id) 
+                copied = await bot.copy_message(chat_id=self.__user_id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id, reply_to_message_id=self.__listener.dmmodemsg.id) 
                 if self.__has_buttons:
                     rply = (InlineKeyboardMarkup(BTN) if (BTN := self.__sent_msg.reply_markup.inline_keyboard[:-1]) else None) if config_dict['SAVE_MSG'] else self.__sent_msg.reply_markup
                     try:
@@ -136,7 +136,7 @@ class TgUploader:
             'as_doc', False) or (config_dict['AS_DOCUMENT'] if 'as_doc' not in user_dict else False)
         self.__media_group = user_dict.get(
             'media_group') or (config_dict['MEDIA_GROUP'] if 'media_group' not in user_dict else False)
-        self.__bot_pm = config_dict['DM_MODE'] or user_dict.get('bot_pm')
+        self.__dm_mode = config_dict['DM_MODE'] or user_dict.get('bot_pm')
         self.__mediainfo = config_dict['SHOW_MEDIAINFO'] or user_dict.get('mediainfo')
         self.__ldump = user_dict.get('ldump', '') or ''
         self.__has_buttons = bool(config_dict['SAVE_MSG'] or self.__mediainfo)
@@ -152,14 +152,27 @@ class TgUploader:
             except Exception as er:
                 await self.__listener.onUploadError(str(er))
                 return False
-            self.__sent_msg = list(self.__leechmsg.values())[0]
+            self.__sent_DMmsg = list(self.__leechmsg.values())[0]
         elif IS_PREMIUM_USER:
             if not self.__listener.isSuperGroup:
                 await self.__listener.onUploadError('Use SuperGroup to leech with User Client! or Set LEECH_LOG_ID to Leech in PM')
                 return False
             self.__sent_msg = self.__listener.message
+            try:
+               self.__sent_msg = await user.get_messages(chat_id=self.__sent_msg.chat.id, message_ids=self.__sent_msg.id)
+            except RPCError as e:
+                await self.__listener.onUploadError(f'{e.NAME} [{e.CODE}]: {e.MESSAGE}')
+            except Exception as e:
+                await self.__listener.onUploadError(e)
+            if self.__listener.dmMessage:
+                self.__sent_DMmsg = self.__listener.dmMessage
+        elif self.__listener.dmMessage:
+            self.__sent_msg = self.__listener.dmMessage
         else:
             self.__sent_msg = self.__listener.message
+        if self.__sent_msg is None:
+            await self.__listener.onUploadError('Cannot find the message to reply')
+            return False
         return True
 
 

@@ -286,6 +286,7 @@ class TgUploader:
                 if file_.lower().endswith(tuple(GLOBAL_EXTENSION_FILTER)):
                     await aioremove(self.__up_path)
                     continue
+                prefile_ = file_
                 try:
                     f_size = await aiopath.getsize(self.__up_path)
                     if self.__listener.seed and file_ in o_files and f_size in m_size:

@@ -172,11 +172,9 @@ class TgUploader:
                 new_path = ospath.join(dirpath, file_)
                 self.__up_path = await copy(self.__up_path, new_path)
             else:
-                new_path = ospath.join(dirpath, f"{self.__lprefix} {file_}")
+                new_path = ospath.join(dirpath, file_)
                 await aiorename(self.__up_path, new_path)
                 self.__up_path = new_path
-        else:
-            cap_mono = f"<i>{file_}</i>"
         if len(file_) > 60:
             if is_archive(file_):
                 name = get_base_name(file_)

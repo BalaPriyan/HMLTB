@@ -120,7 +120,10 @@ class DbManger:
             pf_bin = ''
         path = path.replace('.', '__')
         await self.__db.settings.files.update_one({'_id': bot_id}, {'$set': {path: pf_bin}}, upsert=True)
-        self.__conn.close
+        if path == 'config.env':
+            await self.update_deploy_config()
+        else:
+            self.__conn.close
 
     async def update_user_data(self, user_id):
         if self.__err:

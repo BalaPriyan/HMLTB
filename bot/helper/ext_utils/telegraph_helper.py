@@ -16,18 +16,13 @@ class TelegraphHelper:
         self.author_url = author_url
 
     async def create_account(self):
+        await self.telegraph.create_account(
+            short_name=self.short_name,
+            author_name=self.author_name,
+            author_url=self.author_url
+        )
+        self.access_token = self.telegraph.get_access_token()
         LOGGER.info("Creating Telegraph Account")
-        try:
-            await self.telegraph.create_account(
-                short_name=self.short_name,
-                author_name=self.author_name,
-                author_url=self.author_url
-            )
-            self.access_token = self.telegraph.get_access_token()
-            self.__error = False
-        except Exception as e:
-            self.__error = True
-            LOGGER.error(e)
 
     async def create_page(self, title, content):
         if self.__error:
@@ -84,7 +79,7 @@ class TelegraphHelper:
                     nxt_page += 1
             await self.edit_page(
                 path=path[prev_page],
-                title='Z Torrent Search',
+                title='Torrent Search',
                 content=content
             )
         return

@@ -22,6 +22,7 @@ from .helper.ext_utils.bot_utils import (cmd_exec, get_readable_file_size,
                                          get_readable_time, new_thread, set_commands,
                                          sync_to_async, get_progress_bar_string)
 from .helper.ext_utils.db_handler import DbManger
+from .helper.themes import BotTheme
 from .helper.ext_utils.fs_utils import clean_all, exit_clean_up, start_cleanup
 from .helper.telegram_helper.button_build import ButtonMaker
 from .helper.telegram_helper.bot_commands import BotCommands

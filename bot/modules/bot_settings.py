@@ -521,7 +521,7 @@ async def load_config():
                         'USE_SERVICE_ACCOUNTS': USE_SERVICE_ACCOUNTS,
                         'WEB_PINCODE': WEB_PINCODE,
                         'YTDLP_LIMIT': YTDLP_LIMIT,
-                        'YT_DLP_OPTIONS': YT_DLP_OPTIONS
+                        'YT_DLP_OPTIONS': YT_DLP_OPTIONS,
                         'SAVE_MSG': SAVE_MSG})
 
     if DATABASE_URL:

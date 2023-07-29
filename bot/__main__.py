@@ -160,8 +160,8 @@ async def send_bot_limits(_, query):
                 f'├<code>Direct    : {DIR}</code> <b>GB</b>\n' \
                 f'├<code>Clone     : {CLL}</code> <b>GB</b>\n' \
                 f'├<code>Leech     : {TGL}</code> <b>GB</b>\n' \
-                f'├<code>MEGA      : {MGA}</code> <b>GB</b>\n\n' \
-                f'├<code>User Tasks: {UMT}</code>\n' \
+                f'╰<code>MEGA      : {MGA}</code> <b>GB</b>\n\n' \
+                f'╭<code>User Tasks: {UMT}</code>\n' \
                 f'╰<code>Bot Tasks : {BMT}</code>'
 
     buttons.ibutton("Bot Stats",  "show_bot_stats")

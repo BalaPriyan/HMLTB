@@ -231,7 +231,9 @@ async def ping(_, message):
     await editMessage(reply, f'{ping_time} ms')
 
 async def log(_, message):
-    await sendFile(message, 'Z_Logs.txt')
+    buttons = ButtonMaker()
+    buttons.ibutton('📑 Log Display', f'fond {message.from_user.id} logdisplay')
+    await sendFile(message, 'Z_Logs.txt', buttons=buttons.build_menu(1))
 
 help_string = f'''
 <b>NOTE: Click on any CMD to see more detalis.</b>

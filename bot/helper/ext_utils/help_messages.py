@@ -228,5 +228,6 @@ Reply to an active <code>/{cmd}</code> which was used to start the qb-download o
 This command mainly for selection incase you decided to select files from already added torrent.
 But you can always use <code>/{mir}</code> with arg `-s` to select files before download start.
 
-<b>Powered By @Z_Mirror</b>
+<b>Powered By @TomenMain</b>
 """
+default_desp = {'SAVE_MSG': 'Add button of save message. Bool',}

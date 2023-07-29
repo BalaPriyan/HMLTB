@@ -238,7 +238,7 @@ async def ping(_, message):
 async def log(_, message):
     buttons = ButtonMaker()
     buttons.ibutton('📑 Log Display', f'fond {message.from_user.id} logdisplay')
-    await sendFile(message, 'Z_Logs.txt', buttons=ibutton.build_menu(1))
+    await sendFile(message, 'Z_Logs.txt')
 
 help_string = f'''
 <b>NOTE: Click on any CMD to see more detalis.</b>

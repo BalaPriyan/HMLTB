@@ -401,6 +401,10 @@ USER_DUMP = '' if len(USER_DUMP) == 0 else USER_DUMP
 if USER_DUMP.isdigit() or USER_DUMP.startswith('-'):
     USER_DUMP = int(USER_DUMP)
 
+BOT_THEME = environ.get('BOT_THEME', '')
+if len(BOT_THEME) == 0:
+    BOT_THEME = 'minimal'
+
 config_dict = {
     "AS_DOCUMENT": AS_DOCUMENT,
     "AUTHORIZED_CHATS": AUTHORIZED_CHATS,
@@ -474,7 +478,8 @@ config_dict = {
     "REQUEST_LIMITS": REQUEST_LIMITS,
     "DM_MODE": DM_MODE,
     "DELETE_LINKS": DELETE_LINKS,
-    "TOKEN_TIMEOUT": TOKEN_TIMEOUT
+    "TOKEN_TIMEOUT": TOKEN_TIMEOUT,
+    'BOT_THEME': BOT_THEME
 }
 
 config_dict = OrderedDict(sorted(config_dict.items()))

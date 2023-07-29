@@ -35,6 +35,7 @@ class TgUploader:
         self.__start_time = time()
         self.__total_files = 0
         self.__is_cancelled = False
+        self.__has_buttons = False
         self.__thumb = f"Thumbnails/{listener.message.from_user.id}.jpg"
         self.__msgs_dict = {}
         self.__corrupted = 0
@@ -63,6 +64,18 @@ class TgUploader:
         if self.__has_buttons:
             return buttons.build_menu(1)
         return None
+
+    async def __copy_file(self):
+        try:
+            if self.__send_dm and (self.__leechmsg or self.__listener.isSuperGroup):
+                destination = 'DM MODE'
+                copied = await bot.copy_message(chat_id=self.__user_id, from_chat_id=self.__sent_msg.chat.id, message_id=self.__sent_msg.id, reply_to_message_id=self.__listener.botpmmsg.id) 
+                if self.__has_buttons:
+                    rply = (InlineKeyboardMarkup(BTN) if (BTN := self.__sent_msg.reply_markup.inline_keyboard[:-1]) else None) if config_dict['SAVE_MSG'] else self.__sent_msg.reply_markup
+                    try:
+                        await copied.edit_reply_markup(rply)
+                    except MessageNotModified:
+                        pass
         
     async def __upload_progress(self, current, total):
         if self.__is_cancelled:
@@ -76,6 +89,7 @@ class TgUploader:
     async def __user_settings(self):
         user_id = self.__listener.message.from_user.id
         user_dict = user_data.get(user_id, {})
+        self.__has_buttons = bool(config_dict['SAVE_MSG'] or self.__mediainfo)
         self.__as_doc = user_dict.get(
             'as_doc', False) or (config_dict['AS_DOCUMENT'] if 'as_doc' not in user_dict else False)
         self.__media_group = user_dict.get(

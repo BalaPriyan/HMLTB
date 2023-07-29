@@ -35,6 +35,7 @@ class _BotCommands:
         self.BotSetCommand = f'bsetting{CMD_SUFFIX}'
         self.UserSetCommand = f'usetting{CMD_SUFFIX}'
         self.BtSelectCommand = f'btsel{CMD_SUFFIX}'
+        self.SpeedCommand = [f'speedtest{CMD_SUFFIX}', f'sp{CMD_SUFFIX}']
         self.RssCommand = f'rss{CMD_SUFFIX}'
         self.CategorySelect = f'catsel{CMD_SUFFIX}'
         self.RmdbCommand = f'rmdb{CMD_SUFFIX}'

@@ -201,15 +201,15 @@ async def start(_, message):
         msg = 'Token refreshed successfully!\n\n'
         msg += f'Validity: {get_readable_time(int(config_dict["TOKEN_TIMEOUT"]))}'
         return await sendMessage(message, msg)
+    elif await CustomFilters.authorized(client, message):
+        start_string = BotTheme('ST_MSG', help_command=f"/{BotCommands.HelpCommand}")
+        await sendMessage(message, start_string, reply_markup)
     elif config_dict['DM_MODE']:
-        start_string = 'Bot Started.\n' \
-                       'Now I can send your stuff here.\n' \
-                       'Use me here: @TomenMain'
+        await sendMessage(message, BotTheme('ST_BOTPM'), reply_markup)
     else:
-        start_string = 'Sorry, you cant use me here!\n' \
-                       'Join @TomenMain to use me.\n' \
-                       'Thank You'
-    await sendMessage(message, start_string)
+        await sendMessage(message, BotTheme('ST_UNAUTH'), reply_markup)
+    await DbManger().update_pm_users(message.from_user.id)
+
 
 
 async def restart(_, message):

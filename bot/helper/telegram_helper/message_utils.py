@@ -42,7 +42,7 @@ async def editMessage(message, text, buttons=None):
         return str(e)
 
 
-async def sendFile(message, file, caption=None):
+async def sendFile(message, file, caption=None, buttons=None):
     try:
         return await message.reply_document(document=file, quote=True, caption=caption, disable_notification=True, reply_markup=buttons)
     except FloodWait as f:

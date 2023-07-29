@@ -225,5 +225,13 @@ class DbManger:
         await self.__db.download_links.delete_one({'_id': url})
         self.__conn.close
 
+    async def update_pm_users(self, user_id):
+        if self.__err:
+            return
+        if not bool(await self.__db.pm_users[bot_id].find_one({'_id': user_id})):
+            await self.__db.pm_users[bot_id].insert_one({'_id': user_id})
+            LOGGER.info(f'New PM User Added : {user_id}')
+        self.__conn.close
+
 if DATABASE_URL:
     bot_loop.run_until_complete(DbManger().db_load())

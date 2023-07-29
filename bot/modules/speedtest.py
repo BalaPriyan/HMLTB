@@ -49,7 +49,7 @@ async def speedtest(_, message):
         await deleteMessage(speed)
     except Exception as e:
         LOGGER.error(str(e))
-        pho = await editMessage(speed, string_speed)
+        await editMessage(speed, string_speed)
 
 bot.add_handler(MessageHandler(speedtest, filters=command(
     BotCommands.SpeedCommand) & CustomFilters.authorized))

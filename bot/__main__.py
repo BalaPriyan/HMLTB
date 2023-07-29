@@ -72,15 +72,15 @@ async def stats(_, message, edit_mode=False):
                 f'├<b>V-Core(s):</b> <code>{v_core}</code>\n' \
                 f'╰<b>Frequency:</b> <code>{cpu_freq(percpu=False).current / 1000:.2f} GHz</code>\n\n' \
                 f'●<b>CPU:</b> {get_progress_bar_string(cpuUsage)}<code> {cpuUsage}%</code>\n' \
-                f'<b>CPU Total Core(s):</b> <code>{cpu_count(logical=True)}</code>\n' \
+                f'╰<b>CPU Total Core(s):</b> <code>{cpu_count(logical=True)}</code>\n\n' \
                 f'●<b>RAM:</b> {get_progress_bar_string(mem_p)}<code> {mem_p}%</code>\n' \
-                f'<b>Total:</b> <code>{get_readable_file_size(memory.total)}</code> | ' \
+                f'╰<b>Total:</b> <code>{get_readable_file_size(memory.total)}</code> | ' \
                 f'●<b>Free:</b> <code>{get_readable_file_size(memory.available)}</code>\n\n' \
                 f'●<b>SWAP:</b> {get_progress_bar_string(swap.percent)}<code> {swap.percent}%</code>\n' \
-                f'<b>Total</b> <code>{get_readable_file_size(swap.total)}</code> | ' \
+                f'╰<b>Total</b> <code>{get_readable_file_size(swap.total)}</code> | ' \
                 f'●<b>Free:</b> <code>{get_readable_file_size(swap.free)}</code>\n\n' \
                 f'●<b>DISK:</b> {get_progress_bar_string(disk)}<code> {disk}%</code>\n' \
-                f'<b>Total:</b> <code>{total}</code> | <b>Free:</b> <code>{free}</code>'
+                f'╰<b>Total:</b> <code>{total}</code> | <b>Free:</b> <code>{free}</code>'
 
     buttons.ibutton("Sys Stats",  "show_sys_stats")
     buttons.ibutton("Repo Stats", "show_repo_stats")

@@ -45,7 +45,7 @@ async def speedtest(_, message):
 ┖ <b>ISP Rating:</b> <code>{result['client']['isprating']}</code>
 '''
     try:
-        pho = await sendMessage(message, string_speed, photo=path)
+        pho = await sendMessage(message, string_speed)
         await deleteMessage(speed)
     except Exception as e:
         LOGGER.error(str(e))

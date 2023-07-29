@@ -201,7 +201,7 @@ async def start(_, message):
         msg = 'Token refreshed successfully!\n\n'
         msg += f'Validity: {get_readable_time(int(config_dict["TOKEN_TIMEOUT"]))}'
         return await sendMessage(message, msg)
-    elif await CustomFilters.authorized(client, message):
+    elif await CustomFilters.authorized(_, message):
         start_string = BotTheme('ST_MSG', help_command=f"/{BotCommands.HelpCommand}")
         await sendMessage(message, start_string, reply_markup)
     elif config_dict['DM_MODE']:

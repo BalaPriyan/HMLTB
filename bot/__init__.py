@@ -405,8 +405,6 @@ BOT_THEME = environ.get('BOT_THEME', '')
 if len(BOT_THEME) == 0:
     BOT_THEME = 'minimal'
 
-SAVE_MSG = environ.get('SAVE_MSG', '')
-SAVE_MSG = SAVE_MSG.lower() == 'true'
 
 
 
@@ -484,8 +482,7 @@ config_dict = {
     "DM_MODE": DM_MODE,
     "DELETE_LINKS": DELETE_LINKS,
     "TOKEN_TIMEOUT": TOKEN_TIMEOUT,
-    'BOT_THEME': BOT_THEME,
-    'SAVE_MSG': SAVE_MSG
+    'BOT_THEME': BOT_THEME
 }
 
 config_dict = OrderedDict(sorted(config_dict.items()))

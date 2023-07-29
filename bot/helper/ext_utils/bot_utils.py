@@ -152,19 +152,19 @@ def get_readable_message():
             msg += f"\n├ <code>Done     </code>: {download.processed_bytes()} of {download.size()}"
             msg += f"\n├ <code>ETA      </code>: {download.eta()}"
             msg += f"\n├ <code>Active   </code>: {get_readable_time(elapsed)}"
-            msg += f"\n╰ <code>Engine   </code>: {download.engine}"
+            msg += f"\n├ <code>Engine   </code>: {download.engine}"
 
             if hasattr(download, 'playList'):
                 try:
                     if playlist:=download.playList():
-                        msg += f"\n• <code>YT Count </code>: {playlist}"
+                        msg += f"\n├ <code>YT Count </code>: {playlist}"
                 except:
                     pass
 
             if hasattr(download, 'seeders_num'):
                 try:
-                    msg += f"\n• <code>Seeders  </code>: {download.seeders_num()}"
-                    msg += f"\n• <code>Leechers </code>: {download.leechers_num()}"
+                    msg += f"\n├ <code>Seeders  </code>: {download.seeders_num()}"
+                    msg += f"\n├ <code>Leechers </code>: {download.leechers_num()}"
                 except:
                     pass
 
@@ -182,8 +182,8 @@ def get_readable_message():
         else:
             msg += f"\n├ <code>Task     </code>: <a href='{download.message.link}'>{download.extra_details['mode']}</a>"
 
-        msg += f"\n├ <code>User     </code>» {tag}"
-        msg += f"\n⚠️ /{BotCommands.CancelMirror}_{download.gid()}\n\n"
+        msg += f"\n╰ <code>User     </code>» {tag}"
+        msg += f"\n☠︎ /{BotCommands.CancelMirror}_{download.gid()}\n\n"
 
     if len(msg) == 0:
         return None, None

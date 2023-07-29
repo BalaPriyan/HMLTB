@@ -33,7 +33,7 @@ from .modules import (anonymous, authorize, bot_settings, cancel_mirror,
                       category_select, clone, eval, gd_count, gd_delete,
                       gd_list, leech_del, mirror_leech, rmdb, rss,
                       shell, status, torrent_search,
-                      torrent_select, users_settings, ytdlp)
+                      torrent_select, users_settings, ytdlp, speedtest)
 
 
 async def stats(_, message, edit_mode=False):

@@ -18,6 +18,7 @@ from bot import GLOBAL_EXTENSION_FILTER, IS_PREMIUM_USER, bot, config_dict, user
 from bot.helper.ext_utils.bot_utils import get_readable_file_size, sync_to_async
 from bot.helper.ext_utils.fs_utils import clean_unwanted, get_base_name, is_archive
 from bot.helper.ext_utils.leech_utils import get_document_type, get_media_info, take_ss, remove_unwanted
+from bot.helper.telegram_helper.button_build import ButtonMaker
 
 LOGGER = getLogger(__name__)
 getLogger("pyrogram").setLevel(ERROR)
@@ -49,6 +50,20 @@ class TgUploader:
         self.__button = None
         self.__upload_dest = None
 
+
+     async def __buttons(self, up_path):
+        buttons = ButtonMaker()
+        try:
+            if self.__mediainfo:
+                buttons.ubutton(BotTheme('MEDIAINFO_LINK'), await get_mediainfo_link(up_path))
+        except Exception as e:
+            LOGGER.error("MediaInfo Error: "+str(e))
+        if config_dict['SAVE_MSG'] and (config_dict['LEECH_LOG_ID'] or not self.__listener.isPrivate):
+            buttons.ibutton(BotTheme('SAVE_MSG'), 'save', 'footer')
+        if self.__has_buttons:
+            return buttons.build_menu(1)
+        return None
+        
     async def __upload_progress(self, current, total):
         if self.__is_cancelled:
             if IS_PREMIUM_USER:

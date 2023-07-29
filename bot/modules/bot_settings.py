@@ -369,8 +369,6 @@ async def load_config():
     if len(FSUB_IDS) == 0:
         FSUB_IDS = ''
 
-    SAVE_MSG = environ.get('SAVE_MSG', '')
-    SAVE_MSG = SAVE_MSG.lower() == 'true'
 
     TOKEN_TIMEOUT = environ.get('TOKEN_TIMEOUT', '')
     if TOKEN_TIMEOUT.isdigit():
@@ -521,8 +519,7 @@ async def load_config():
                         'USE_SERVICE_ACCOUNTS': USE_SERVICE_ACCOUNTS,
                         'WEB_PINCODE': WEB_PINCODE,
                         'YTDLP_LIMIT': YTDLP_LIMIT,
-                        'YT_DLP_OPTIONS': YT_DLP_OPTIONS,
-                        'SAVE_MSG': SAVE_MSG})
+                        'YT_DLP_OPTIONS': YT_DLP_OPTIONS})
 
     if DATABASE_URL:
         await DbManger().update_config(config_dict)
